@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ML Tournament 2025</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Orbitron:wght@700;900&display=swap');
+
+:root{
+  --bg:#0a0c14;--surf:#111827;--surf2:#1a2235;--bdr:#1e3a5f;
+  --acc:#00d4ff;--acc2:#7c3aed;--gold:#f59e0b;
+  --win:#10b981;--lose:#ef4444;--txt:#e2e8f0;--muted:#64748b;
+  --bronze:#cd7f32;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;min-height:100vh}
+
+header{background:linear-gradient(135deg,#0a0c14,#111827,#0a0c14);border-bottom:1px solid var(--bdr);
+  padding:13px 24px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.logo{font-family:'Orbitron',monospace;font-size:17px;font-weight:900;letter-spacing:2px;
+  background:linear-gradient(90deg,var(--acc),var(--acc2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo b{-webkit-text-fill-color:var(--gold)}
+.hbtns{display:flex;gap:8px}
+
+.btn{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:12px;letter-spacing:1px;
+  padding:7px 15px;border-radius:6px;border:none;cursor:pointer;transition:all .15s;text-transform:uppercase}
+.btn-p{background:linear-gradient(135deg,var(--acc),#0090b3);color:#000}
+.btn-p:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,212,255,.4)}
+.btn-s{background:var(--surf2);color:var(--txt);border:1px solid var(--bdr)}
+.btn-s:hover{border-color:var(--acc);color:var(--acc)}
+
+.tabs{display:flex;padding:0 24px;background:var(--surf);border-bottom:1px solid var(--bdr)}
+.tab{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:12px;letter-spacing:1px;
+  text-transform:uppercase;padding:12px 20px;cursor:pointer;color:var(--muted);
+  border:none;border-bottom:2px solid transparent;background:none;transition:all .15s}
+.tab.on{color:var(--acc);border-bottom-color:var(--acc)}
+.tab:hover{color:var(--txt)}
+.panel{display:none}.panel.on{display:block}
+
+.ibar{display:flex;gap:18px;flex-wrap:wrap;background:rgba(0,212,255,.05);
+  border:1px solid rgba(0,212,255,.15);border-radius:8px;padding:10px 14px;
+  margin-bottom:20px;font-size:12px;color:var(--muted)}
+.iitem{display:flex;align-items:center;gap:6px}
+.idot{width:7px;height:7px;border-radius:50%;background:var(--acc);flex-shrink:0}
+.idot.g{background:var(--gold)}.idot.v{background:var(--acc2)}.idot.b{background:var(--bronze)}
+
+/* BRACKET CANVAS */
+.bwrap{padding:20px 24px;overflow:auto}
+.bcanvas{position:relative}
+
+/* MATCH CARD */
+.mc{position:absolute;width:185px;background:var(--surf);border:1px solid var(--bdr);
+  border-radius:7px;overflow:hidden;transition:border-color .15s,box-shadow .15s;cursor:pointer}
+.mc:hover{border-color:rgba(0,212,255,.5);box-shadow:0 0 12px rgba(0,212,255,.2)}
+.mc.done{border-color:rgba(0,212,255,.25)}
+.mc.bronze-match{border-color:rgba(205,127,50,.3)}
+.mc.bronze-match:hover{border-color:rgba(205,127,50,.6);box-shadow:0 0 12px rgba(205,127,50,.2)}
+.mc.bronze-match.done{border-color:rgba(205,127,50,.5)}
+
+.mid-lbl{font-family:'Rajdhani',sans-serif;font-size:8px;letter-spacing:1px;color:var(--muted);
+  padding:3px 7px 1px;text-align:right;text-transform:uppercase}
+.tslot{display:flex;align-items:center;padding:5px 7px;gap:6px;border-radius:4px;margin:1px 3px}
+.tslot.w{background:rgba(16,185,129,.1)}
+.tslot.wbr{background:rgba(205,127,50,.1)}
+.tslot.l .tn,.tslot.l .ts{color:var(--muted)}
+.tlogo{width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:7px;font-weight:700;flex-shrink:0;font-family:'Rajdhani',sans-serif}
+.tn{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:11px;
+  flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ts{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;min-width:14px;text-align:center}
+.tslot.w .ts{color:var(--win)}
+.tslot.wbr .ts{color:var(--bronze)}
+.tdiv{height:1px;background:var(--bdr);margin:0 6px}
+.clrbtn{position:absolute;top:2px;left:3px;background:none;border:none;
+  color:var(--muted);cursor:pointer;font-size:9px;padding:1px 4px;border-radius:3px;
+  opacity:0;transition:opacity .12s;z-index:2}
+.mc:hover .clrbtn{opacity:1}
+.clrbtn:hover{color:var(--lose)}
+
+.bsvg{position:absolute;top:0;left:0;pointer-events:none;overflow:visible}
+
+.rhdr{position:absolute;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:10px;
+  letter-spacing:2px;text-transform:uppercase;color:var(--acc);text-align:center;width:185px}
+.rfmt{display:block;font-size:8px;color:var(--muted);margin-top:1px;font-family:'Inter',sans-serif}
+.rhdr.bronze-hdr{color:var(--bronze)}
+
+/* PODIUM CARDS */
+.podium-card{position:absolute;border-radius:12px;padding:18px 14px;text-align:center;width:155px}
+.champ-card{background:linear-gradient(135deg,rgba(245,158,11,.13),rgba(245,158,11,.04));
+  border:1px solid rgba(245,158,11,.5);box-shadow:0 0 24px rgba(245,158,11,.12)}
+.bronze-card{background:linear-gradient(135deg,rgba(205,127,50,.13),rgba(205,127,50,.04));
+  border:1px solid rgba(205,127,50,.45);box-shadow:0 0 16px rgba(205,127,50,.1)}
+.pc-crown{font-size:26px;margin-bottom:5px}
+.pc-lbl{font-family:'Orbitron',monospace;font-size:7px;letter-spacing:3px;
+  text-transform:uppercase;margin-bottom:5px}
+.champ-card .pc-lbl{color:var(--gold)}
+.bronze-card .pc-lbl{color:var(--bronze)}
+.pc-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;word-break:break-word}
+.champ-card .pc-name{color:var(--gold)}
+.bronze-card .pc-name{color:var(--bronze)}
+
+/* TEAM EDITOR */
+.ewrap{padding:24px;max-width:1080px;margin:0 auto}
+.stitle{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:3px;color:var(--acc);
+  text-transform:uppercase;margin-bottom:16px;padding-bottom:9px;border-bottom:1px solid var(--bdr)}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:9px;margin-bottom:18px}
+.tecard{background:var(--surf);border:1px solid var(--bdr);border-radius:7px;
+  padding:10px 12px;display:flex;align-items:center;gap:8px;transition:border-color .15s}
+.tecard:hover{border-color:rgba(0,212,255,.3)}
+.sbadge{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;color:var(--muted);
+  min-width:24px;text-align:center;background:var(--surf2);padding:3px;
+  border-radius:4px;border:1px solid var(--bdr)}
+.cwrap{position:relative}
+.cdot{width:22px;height:22px;border-radius:50%;border:2px solid var(--bdr);
+  cursor:pointer;flex-shrink:0;transition:border-color .15s}
+.cdot:hover{border-color:var(--acc)}
+input[type=color]{position:absolute;opacity:0;width:0;height:0}
+input[type=file]{display:none}
+.ninp{flex:1;background:var(--surf2);border:1px solid var(--bdr);border-radius:5px;
+  padding:5px 8px;color:var(--txt);font-family:'Rajdhani',sans-serif;font-size:13px;
+  font-weight:600;outline:none;transition:border-color .15s;min-width:0}
+.ninp:focus{border-color:var(--acc)}
+
+/* Logo upload button in editor */
+.logo-upload{position:relative;flex-shrink:0}
+.logo-preview{width:36px;height:36px;border-radius:8px;border:1.5px dashed var(--bdr);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:16px;background:var(--surf2);overflow:hidden;transition:border-color .15s;
+  flex-shrink:0}
+.logo-preview:hover{border-color:var(--acc)}
+.logo-preview img{width:100%;height:100%;object-fit:contain;border-radius:6px}
+.logo-preview .upload-hint{font-size:16px;line-height:1}
+.logo-remove{position:absolute;top:-5px;right:-5px;width:14px;height:14px;
+  background:var(--lose);border-radius:50%;border:none;cursor:pointer;
+  color:#fff;font-size:8px;display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .15s;line-height:1}
+.logo-upload:hover .logo-remove{opacity:1}
+
+/* STANDINGS */
+.swrap{padding:24px;max-width:800px;margin:0 auto}
+table{width:100%;border-collapse:collapse;font-family:'Rajdhani',sans-serif}
+th{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);
+  padding:8px 12px;text-align:left;border-bottom:1px solid var(--bdr);font-weight:600}
+td{padding:8px 12px;font-size:13px;font-weight:600;border-bottom:1px solid rgba(30,58,95,.4)}
+tr:hover td{background:var(--surf2)}
+.pb{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;
+  padding:2px 6px;border-radius:4px;display:inline-block}
+.p1{background:rgba(245,158,11,.2);color:var(--gold)}
+.p2{background:rgba(148,163,184,.2);color:#c0c8d8}
+.p3{background:rgba(205,127,50,.2);color:var(--bronze)}
+.sb{font-size:9px;letter-spacing:1px;padding:2px 6px;border-radius:4px;text-transform:uppercase}
+.sa{background:rgba(16,185,129,.13);color:var(--win);border:1px solid rgba(16,185,129,.27)}
+.se{background:rgba(239,68,68,.09);color:var(--lose);border:1px solid rgba(239,68,68,.2)}
+.sw{background:rgba(100,116,139,.09);color:var(--muted);border:1px solid var(--bdr)}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;
+  align-items:center;justify-content:center;backdrop-filter:blur(5px)}
+.overlay.on{display:flex}
+.modal{background:var(--surf);border:1px solid var(--bdr);border-radius:12px;
+  padding:24px;width:340px;box-shadow:0 24px 48px rgba(0,0,0,.6)}
+.modal h3{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:2px;
+  color:var(--acc);margin-bottom:3px}
+.modal h3.bronze{color:var(--bronze)}
+.msub{font-size:11px;color:var(--muted);margin-bottom:16px}
+.srow{display:flex;align-items:center;gap:9px;background:var(--surf2);
+  border:1px solid var(--bdr);border-radius:7px;padding:9px 12px;margin-bottom:9px}
+.sname{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:14px;flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sinp{width:50px;background:var(--bg);border:1px solid var(--bdr);border-radius:5px;
+  padding:7px;color:var(--txt);font-family:'Orbitron',monospace;font-size:16px;
+  font-weight:700;text-align:center;outline:none}
+.sinp:focus{border-color:var(--acc)}
+.mhint{font-size:10px;color:var(--muted);text-align:center;margin-top:2px}
+.merr{font-size:11px;color:var(--lose);text-align:center;margin-top:6px;min-height:15px}
+.mbtns{display:flex;gap:8px;margin-top:16px}
+.mbtns .btn{flex:1;padding:9px}
+/* LOADING OVERLAY */
+.loading-screen{position:fixed;inset:0;background:var(--bg);z-index:999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading-screen.hidden{display:none}
+.spinner{width:40px;height:40px;border:3px solid var(--bdr);
+  border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-txt{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:3px;color:var(--muted)}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;z-index:500;
+  background:var(--surf);border:1px solid var(--bdr);border-radius:8px;
+  padding:10px 16px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;
+  display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.4);
+  transform:translateY(80px);opacity:0;transition:all .25s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{border-color:rgba(16,185,129,.4);color:var(--win)}
+.toast.err{border-color:rgba(239,68,68,.4);color:var(--lose)}
+.toast.info{border-color:rgba(0,212,255,.3);color:var(--acc)}
+/* SYNC indicator */
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);
+  display:inline-block;margin-right:4px;transition:background .3s}
+.sync-dot.syncing{background:var(--gold);animation:blink .8s infinite}
+.sync-dot.synced{background:var(--win)}
+.sync-dot.err{background:var(--lose)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+</style>
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div class="loading-screen" id="loading-screen">
+  <div class="spinner"></div>
+  <div class="loading-txt">Memuat data turnamen...</div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<header>
+  <div class="logo">ML <b>·</b> TOURNAMENT</div>
+  <div class="hbtns">
+    <span style="display:flex;align-items:center;font-family:Rajdhani,sans-serif;font-size:11px;color:var(--muted)">
+      <span class="sync-dot" id="sync-dot"></span><span id="sync-txt">–</span>
+    </span>
+    <button class="btn btn-s" onclick="resetAll()">↺ Reset</button>
+    <button class="btn btn-p" onclick="exportData()">↓ Export</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab on"  onclick="showTab('bracket',this)">🏆 Bracket</button>
+  <button class="tab"     onclick="showTab('teams',this)">✏️ Edit Tim</button>
+  <button class="tab"     onclick="showTab('standings',this)">📊 Standings</button>
+</div>
+
+<div id="panel-bracket" class="panel on">
+  <div class="bwrap">
+    <div class="ibar">
+      <div class="iitem"><div class="idot"></div>R32 · R16 · QF = Best of 3</div>
+      <div class="iitem"><div class="idot v"></div>Semifinal = Best of 5</div>
+      <div class="iitem"><div class="idot g"></div>Final = Best of 5</div>
+      <div class="iitem"><div class="idot b"></div>Perebutan Juara 3 = Best of 5</div>
+      <div class="iitem"><div class="idot" style="background:var(--acc2)"></div>Klik kartu untuk input skor · Hover untuk hapus</div>
+    </div>
+    <div class="bcanvas" id="bcanvas"></div>
+  </div>
+</div>
+
+<div id="panel-teams" class="panel">
+  <div class="ewrap">
+    <div class="stitle">Edit Tim</div>
+    <div class="ibar"><div class="iitem"><div class="idot"></div>Ubah nama &amp; warna — bracket otomatis update</div></div>
+    <div class="tgrid" id="tgrid"></div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <button class="btn btn-s" onclick="randomSeeds()">🎲 Acak Seeding</button>
+      <button class="btn btn-s" onclick="resetNames()">↺ Reset Default</button>
+    </div>
+  </div>
+</div>
+
+<div id="panel-standings" class="panel">
+  <div class="swrap">
+    <div class="stitle">Standings</div>
+    <table>
+      <thead><tr><th>#</th><th>Tim</th><th>Babak</th><th>W</th><th>L</th><th>Status</th></tr></thead>
+      <tbody id="stbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="mtitle">INPUT SKOR</h3>
+    <div class="msub" id="msub"></div>
+    <div class="srow">
+      <div class="sname" id="mn1"></div>
+      <input class="sinp" type="number" id="si1" min="0" max="5" value="0">
+    </div>
+    <div class="srow">
+      <div class="sname" id="mn2"></div>
+      <input class="sinp" type="number" id="si2" min="0" max="5" value="0">
+    </div>
+    <div class="mhint" id="mhint"></div>
+    <div class="merr"  id="merr"></div>
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeModal()">Batal</button>
+      <button class="btn btn-p" onclick="submitScore()">✓ Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════
+const CARD_W  = 185;
+const CARD_H  = 72;
+const COL_GAP = 44;
+const SLOT_H  = CARD_H + 8;   // base slot height (card + gap between cards in R0)
+const HDR_H   = 32;            // space above cards for round header
+
+// rounds 0-4 = R32,R16,QF,SF,Final   round 5 = 3rd place
+const RNAMES = ['Round of 32','Round of 16','Quarterfinal','Semifinal','Final'];
+const RFMTS  = ['Best of 3','Best of 3','Best of 3','Best of 5','Best of 5'];
+const RWIN   = [2, 2, 2, 3, 3];   // wins needed for rounds 0-4
+const WIN_3RD = 3;                 // wins needed for 3rd place (BO5)
+
+// Standard 32-team seeding — slot index → seed number
+// Slots 0,1 = match 0 in R0; slots 2,3 = match 1, etc.
+const BRACKET_SEEDS = [
+   1,32, 16,17,  8,25,  9,24,
+   5,28, 12,21,  4,29, 13,20,
+   3,30, 14,19,  6,27, 11,22,
+   7,26, 10,23,  2,31, 15,18
+];
+
+const DEF_NAMES = [
+  'ONIC Esports','RRQ Hoshi','Evos Legends','Bigetron Alpha',
+  'Aura Fire','Alter Ego','Rebellion Zion','Natus Vincere',
+  'Team Liquid','Geek Fam','Blacklist Intl','Echo',
+  'RSG Philippines','AP Bren','Smart Omega','Omega Esports',
+  'Falcon Esports','True Rippers','Execration','Todak',
+  'Team Secret','Fnatic','TNC Predator','NXL Esports',
+  'Buriram United','Dewa United','EVOS SG','Incendio Stellar',
+  'Team HAQ','Laus Playbook','Amplid','Siren Esports'
+];
+const DEF_COLORS = [
+  '#00d4ff','#7c3aed','#10b981','#f59e0b','#ef4444','#ec4899',
+  '#06b6d4','#8b5cf6','#14b8a6','#f97316','#6366f1','#84cc16',
+  '#22c55e','#3b82f6','#a855f7','#fb923c','#f43f5e','#2dd4bf',
+  '#60a5fa','#c084fc','#34d399','#fbbf24','#818cf8','#4ade80',
+  '#38bdf8','#e879f9','#a3e635','#fdba74','#fb7185','#67e8f9',
+  '#d8b4fe','#bbf7d0'
+];
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let teams = DEF_NAMES.map((name,i)=>({name,color:DEF_COLORS[i],seed:i+1,logo:null}));
+
+/*
+  matches[0..4][i] = main bracket (R32→Final)
+  matches[5][0]    = 3rd place match (losers of both SF matches)
+
+  Each match object:
+    t1, t2  : team index into teams[] or null
+    s1, s2  : scores or null
+    win     : winning team index or null
+    lose    : losing team index or null (tracked for SF→3rd place)
+*/
+let matches = [];
+let activeR = null, activeI = null;
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+function initMatches() {
+  matches = [];
+
+  // Round 0: 16 seeded matches
+  const r0 = [];
+  for (let i = 0; i < 16; i++) {
+    const s1 = BRACKET_SEEDS[i*2];
+    const s2 = BRACKET_SEEDS[i*2+1];
+    r0.push({ t1: seedIdx(s1), t2: seedIdx(s2), s1:null, s2:null, win:null, lose:null });
+  }
+  matches.push(r0);
+
+  // Rounds 1-4: empty
+  [8, 4, 2, 1].forEach(n => {
+    matches.push(Array.from({length:n}, ()=>({t1:null,t2:null,s1:null,s2:null,win:null,lose:null})));
+  });
+
+  // Round 5: 3rd place (1 match, losers of SF = matches[3][0] and matches[3][1])
+  matches.push([{t1:null, t2:null, s1:null, s2:null, win:null, lose:null}]);
+}
+
+function seedIdx(seed) {
+  return teams.findIndex(t => t.seed === seed);
+}
+
+// ══════════════════════════════════════════════
+// PROPAGATE
+//   Winners advance up the main bracket (r0→r4).
+//   Losers of SF (r3) go to 3rd place match (r5).
+// ══════════════════════════════════════════════
+function propagate() {
+  // Main bracket: winners advance
+  for (let r = 0; r <= 3; r++) {
+    matches[r].forEach((m, i) => {
+      const nm = matches[r+1][Math.floor(i/2)];
+      if (i % 2 === 0) nm.t1 = m.win;
+      else             nm.t2 = m.win;
+    });
+  }
+
+  // 3rd place: losers of SF (round 3, matches 0 and 1)
+  const sf0 = matches[3][0];
+  const sf1 = matches[3][1];
+  const m3  = matches[5][0];
+  m3.t1 = sf0.lose;
+  m3.t2 = sf1.lose;
+}
+
+// ══════════════════════════════════════════════
+// CLEAR DOWNSTREAM
+// ══════════════════════════════════════════════
+function clearDown(r, i) {
+  // For main bracket rounds 0-3: clear winner path upward
+  if (r <= 3) {
+    let ci = i;
+    for (let cr = r+1; cr <= 4; cr++) {
+      ci = Math.floor(ci/2);
+      const nm = matches[cr][ci];
+      nm.s1=null; nm.s2=null; nm.win=null; nm.lose=null;
+    }
+    // If clearing SF (r=3), also clear 3rd place
+    if (r === 3) {
+      const m3 = matches[5][0];
+      m3.s1=null; m3.s2=null; m3.win=null; m3.lose=null;
+    }
+  }
+  // For final (r=4): nothing downstream
+  // For 3rd place (r=5): nothing downstream
+}
+
+// ══════════════════════════════════════════════
+// LAYOUT MATH
+//   Canvas uses 16 base slots (SLOT_H each).
+//   cardTop(r,i): vertical center of match i in round r
+//   cardLeft(r):  horizontal position of round r column
+// ══════════════════════════════════════════════
+const CANVAS_H = 16 * SLOT_H;
+
+function cardTop(r, i) {
+  const spm = Math.pow(2, r);   // slots per match in round r
+  return HDR_H + i * spm * SLOT_H + (spm - 1) * SLOT_H / 2;
+}
+
+function cardLeft(r) {
+  return r * (CARD_W + COL_GAP);
+}
+
+// 3rd place match sits below the Final, offset to align with SF column
+// We'll place it in the SF column (col 3), below the two SF matches
+function thirdPlaceLeft() {
+  return cardLeft(3);
+}
+
+function thirdPlaceTop() {
+  // Below the bracket canvas, with some margin
+  return CANVAS_H + HDR_H + 40;
+}
+
+// ══════════════════════════════════════════════
+// RENDER BRACKET
+// ══════════════════════════════════════════════
+function renderBracket() {
+  propagate();
+
+  const canvas = document.getElementById('bcanvas');
+  canvas.innerHTML = '';
+
+  const extraRowH = CARD_H + 80; // space for 3rd place row below
+  const totalH    = CANVAS_H + HDR_H + extraRowH;
+  const totalW    = cardLeft(5) + 155 + 20;
+
+  canvas.style.width  = totalW + 'px';
+  canvas.style.height = totalH + 'px';
+
+  // SVG for connector lines
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','bsvg');
+  svg.setAttribute('width', totalW);
+  svg.setAttribute('height', totalH);
+  canvas.appendChild(svg);
+
+  // ── Main bracket rounds 0-4 ──
+  for (let r = 0; r <= 4; r++) {
+    // Header
+    const hdr = el('div','rhdr');
+    hdr.style.cssText = `left:${cardLeft(r)}px;top:0`;
+    hdr.innerHTML = `${RNAMES[r]}<span class="rfmt">${RFMTS[r]}</span>`;
+    canvas.appendChild(hdr);
+
+    // Cards + connectors
+    matches[r].forEach((m, i) => {
+      const card = buildCard(m, r, i, false);
+      card.style.cssText = `left:${cardLeft(r)}px;top:${cardTop(r,i)}px`;
+      canvas.appendChild(card);
+      if (r < 4) drawConnector(svg, r, i, false);
+    });
+  }
+
+  // ── 3rd place section ──
+  const tp3 = thirdPlaceTop();
+  const tl3 = thirdPlaceLeft();
+
+  // Separator label
+  const sep = el('div','rhdr bronze-hdr');
+  sep.style.cssText = `left:${tl3}px;top:${tp3-28}px;width:auto;white-space:nowrap`;
+  sep.innerHTML = `🥉 Perebutan Juara 3<span class="rfmt">Best of 5</span>`;
+  canvas.appendChild(sep);
+
+  // 3rd place card
+  const m3 = matches[5][0];
+  const card3 = buildCard(m3, 5, 0, true);
+  card3.style.cssText = `left:${tl3}px;top:${tp3}px`;
+  canvas.appendChild(card3);
+
+  // Dashed lines from SF losers to 3rd place card
+  drawThirdPlaceConnectors(svg, tp3);
+
+  // Champion podium
+  const finalM = matches[4][0];
+  const champ  = finalM.win  !== null ? teams[finalM.win]  : null;
+  const third  = m3.win !== null ? teams[m3.win] : null;
+
+  const cx = cardLeft(5);
+  const cy = cardTop(4,0) + CARD_H/2 - 65;
+  const cc = el('div','podium-card champ-card');
+  cc.style.cssText = `left:${cx}px;top:${cy}px`;
+  const champLogoHTML = champ && champ.logo
+    ? `<img src="${champ.logo}" style="width:40px;height:40px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
+    : `<div class="pc-crown">🏆</div>`;
+  cc.innerHTML = `${champLogoHTML}<div class="pc-lbl">Champion</div>
+    <div class="pc-name">${champ ? h(champ.name) : '???'}</div>`;
+  canvas.appendChild(cc);
+
+  // 3rd place podium card
+  const bx = tl3 + CARD_W + COL_GAP;
+  const by = tp3 + CARD_H/2 - 55;
+  const bc = el('div','podium-card bronze-card');
+  bc.style.cssText = `left:${bx}px;top:${by}px`;
+  const thirdLogoHTML = third && third.logo
+    ? `<img src="${third.logo}" style="width:36px;height:36px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
+    : `<div class="pc-crown">🥉</div>`;
+  bc.innerHTML = `${thirdLogoHTML}<div class="pc-lbl">Juara 3</div>
+    <div class="pc-name">${third ? h(third.name) : '???'}</div>`;
+  canvas.appendChild(bc);
+}
+
+// ══════════════════════════════════════════════
+// BUILD MATCH CARD
+// ══════════════════════════════════════════════
+function buildCard(m, r, i, isBronze) {
+  const t1   = m.t1 !== null ? teams[m.t1] : null;
+  const t2   = m.t2 !== null ? teams[m.t2] : null;
+  const w1   = m.win !== null && m.win === m.t1;
+  const w2   = m.win !== null && m.win === m.t2;
+  const done = m.s1 !== null;
+
+  const card = el('div', 'mc' + (done?' done':'') + (isBronze?' bronze-match':''));
+  card.addEventListener('click', () => openModal(r, i));
+
+  if (done) {
+    const cb = el('button','clrbtn');
+    cb.title = 'Hapus hasil';
+    cb.textContent = '✕';
+    cb.addEventListener('click', e => { e.stopPropagation(); clearResult(r,i); });
+    card.appendChild(cb);
+  }
+
+  const lbl = el('div','mid-lbl');
+  lbl.textContent = isBronze ? 'M32 · 3RD PLACE' : `M${matchNum(r,i)}`;
+  card.appendChild(lbl);
+
+  card.appendChild(slotEl(t1, m.s1, w1, w2, isBronze));
+  card.appendChild(divEl());
+  card.appendChild(slotEl(t2, m.s2, w2, w1, isBronze));
+  return card;
+}
+
+function matchNum(r, i) {
+  return [0,16,24,28,30,31][r] + i + 1;
+}
+
+function slotEl(team, score, isW, isL, isBronze) {
+  const color  = team ? team.color : '#475569';
+  const name   = team ? h(team.name) : 'TBD';
+  const sc     = score !== null ? score : '–';
+  const winCls = isBronze ? 'wbr' : 'w';
+  const cls    = 'tslot' + (isW?' '+winCls:'') + (isL?' l':'');
+
+  // Logo: image if uploaded, else initials
+  let logoHTML;
+  if (team && team.logo) {
+    logoHTML = `<div class="tlogo" style="background:#0004;border:1px solid ${color}40;padding:1px">
+      <img src="${team.logo}" style="width:100%;height:100%;object-fit:contain;border-radius:50%">
+    </div>`;
+  } else {
+    const init = team ? team.name.split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase() : '?';
+    logoHTML = `<div class="tlogo" style="background:${color}20;border:1px solid ${color}50;color:${color}">${init}</div>`;
+  }
+
+  const d = el('div', cls);
+  d.innerHTML = `${logoHTML}<div class="tn">${name}</div><div class="ts">${sc}</div>`;
+  return d;
+}
+
+function divEl() { const d=el('div','tdiv'); return d; }
+
+// ══════════════════════════════════════════════
+// SVG CONNECTORS
+// ══════════════════════════════════════════════
+function drawConnector(svg, r, i, _unused) {
+  const x1 = cardLeft(r) + CARD_W;
+  const y1 = cardTop(r, i) + CARD_H / 2;
+  const ni = Math.floor(i / 2);
+  const nx = cardLeft(r+1);
+  const ny = cardTop(r+1, ni) + CARD_H / 2;
+  const mx = x1 + COL_GAP / 2;
+  svgPath(svg, `M${x1},${y1} H${mx} V${ny} H${nx}`, '#1e3a5f', 1.5, false);
+}
+
+function drawThirdPlaceConnectors(svg, tp3) {
+  // Loser of SF match 0 (matches[3][0]) → t1 of 3rd place
+  // Loser of SF match 1 (matches[3][1]) → t2 of 3rd place
+  const sf0 = matches[3][0];
+  const sf1 = matches[3][1];
+
+  // Bottom of SF card → down → 3rd place card
+  [0, 1].forEach(i => {
+    const sx  = cardLeft(3) + CARD_W / 2;   // center-bottom of SF card
+    const sy  = cardTop(3, i) + CARD_H;     // bottom edge of SF card
+    const ty  = tp3 + CARD_H / 2;            // center of 3rd place card
+    const tx  = thirdPlaceLeft() + (i === 0 ? CARD_W * 0.25 : CARD_W * 0.75); // entry point
+    svgPath(svg, `M${sx},${sy} V${ty} H${tx}`, '#3d2a0a', 1.5, true);
+  });
+}
+
+function svgPath(svg, d, stroke, width, dashed) {
+  const p = document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('d', d);
+  p.setAttribute('stroke', stroke);
+  p.setAttribute('stroke-width', width);
+  p.setAttribute('fill', 'none');
+  if (dashed) p.setAttribute('stroke-dasharray', '4 3');
+  svg.appendChild(p);
+}
+
+// ══════════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════════
+function openModal(r, i) {
+  const m  = matches[r][i];
+  const t1 = m.t1 !== null ? teams[m.t1] : null;
+  const t2 = m.t2 !== null ? teams[m.t2] : null;
+  if (!t1 && !t2) return;
+
+  activeR = r; activeI = i;
+  const isBronze = (r === 5);
+  const isSF     = (r === 3);
+
+  const title = document.getElementById('mtitle');
+  title.textContent = isBronze ? 'PEREBUTAN JUARA 3' : 'INPUT SKOR';
+  title.className   = isBronze ? 'bronze' : '';
+
+  const wn = r <= 4 ? RWIN[r] : WIN_3RD;
+  document.getElementById('msub').textContent  = isBronze ? 'Best of 5 · 3rd Place Match' : `${RNAMES[r]} · ${RFMTS[r]}`;
+  document.getElementById('mn1').textContent   = t1 ? t1.name : 'TBD';
+  document.getElementById('mn2').textContent   = t2 ? t2.name : 'TBD';
+  document.getElementById('si1').value         = m.s1 !== null ? m.s1 : 0;
+  document.getElementById('si2').value         = m.s2 !== null ? m.s2 : 0;
+  document.getElementById('mhint').textContent = `Menang jika skor ≥ ${wn}`;
+  document.getElementById('merr').textContent  = '';
+  document.getElementById('overlay').classList.add('on');
+  document.getElementById('si1').focus();
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.remove('on');
+  activeR = null; activeI = null;
+}
+
+function submitScore() {
+  const m  = matches[activeR][activeI];
+  const s1 = Math.max(0, parseInt(document.getElementById('si1').value)||0);
+  const s2 = Math.max(0, parseInt(document.getElementById('si2').value)||0);
+  const wn = activeR <= 4 ? RWIN[activeR] : WIN_3RD;
+  const err = document.getElementById('merr');
+
+  if (s1 > wn || s2 > wn)     { err.textContent='Skor melebihi batas seri'; return; }
+  if (s1===wn && s2===wn)      { err.textContent='Tidak bisa keduanya menang'; return; }
+
+  m.s1  = s1; m.s2  = s2;
+  m.win = s1 >= wn ? m.t1 : s2 >= wn ? m.t2 : null;
+  // Track loser (needed for SF → 3rd place)
+  if (m.win !== null) {
+    m.lose = (m.win === m.t1) ? m.t2 : m.t1;
+  } else {
+    m.lose = null;
+  }
+
+  clearDown(activeR, activeI);
+  closeModal();
+  renderBracket();
+  renderStandings();
+}
+
+function clearResult(r, i) {
+  const m = matches[r][i];
+  m.s1=null; m.s2=null; m.win=null; m.lose=null;
+  clearDown(r, i);
+  renderBracket();
+  renderStandings();
+}
+
+// ══════════════════════════════════════════════
+// TEAM EDITOR
+// ══════════════════════════════════════════════
+function renderTeamEditor() {
+  const g = document.getElementById('tgrid');
+  g.innerHTML = '';
+  teams.forEach((t,i) => {
+    const c = el('div','tecard');
+
+    const logoContent = t.logo
+      ? `<img src="${t.logo}" alt="logo">`
+      : `<span class="upload-hint">🖼️</span>`;
+
+    const removeBtn = t.logo
+      ? `<button class="logo-remove" title="Hapus logo" onclick="event.stopPropagation();removeLogo(${i})">✕</button>`
+      : '';
+
+    c.innerHTML = `
+      <div class="sbadge">#${t.seed}</div>
+      <div class="logo-upload">
+        <div class="logo-preview" onclick="document.getElementById('lf${i}').click()" title="Upload logo tim">
+          ${logoContent}
+        </div>
+        ${removeBtn}
+        <input type="file" id="lf${i}" accept="image/*" onchange="uploadLogo(${i},this)">
+      </div>
+      <div class="cwrap">
+        <div class="cdot" id="cd${i}" style="background:${t.color}"
+          onclick="document.getElementById('cp${i}').click()" title="Warna tim"></div>
+        <input type="color" id="cp${i}" value="${t.color}" oninput="setColor(${i},this.value)">
+      </div>
+      <input class="ninp" type="text" value="${h(t.name)}"
+        oninput="setName(${i},this.value)" placeholder="Nama Tim">`;
+    g.appendChild(c);
+  });
+}
+
+function uploadLogo(i, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    alert('Ukuran file maksimal 2MB'); return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    teams[i].logo = e.target.result;
+    renderTeamEditor();
+    renderBracket();
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeLogo(i) {
+  teams[i].logo = null;
+  renderTeamEditor();
+  renderBracket();
+}
+
+function setName(i,v){ teams[i].name=v||`Tim ${i+1}`; renderBracket(); renderStandings(); }
+function setColor(i,v){
+  teams[i].color=v;
+  const d=document.getElementById('cd'+i); if(d) d.style.background=v;
+  renderBracket();
+}
+
+function randomSeeds() {
+  for(let i=teams.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [teams[i],teams[j]]=[teams[j],teams[i]];
+  }
+  teams.forEach((t,i)=>t.seed=i+1);
+  initMatches(); renderBracket(); renderTeamEditor(); renderStandings();
+}
+
+function resetNames() {
+  if(!confirm('Reset semua nama, warna & logo ke default?')) return;
+  teams=DEF_NAMES.map((name,i)=>({name,color:DEF_COLORS[i],seed:i+1,logo:null}));
+  initMatches(); renderBracket(); renderTeamEditor(); renderStandings();
+}
+
+// ══════════════════════════════════════════════
+// STANDINGS
+// ══════════════════════════════════════════════
+function renderStandings() {
+  const finalM = matches[4][0];
+  const m3     = matches[5][0];
+
+  const stats = teams.map((t,i) => {
+    let w=0, l=0, maxR=-1;
+    let isChamp=false, isRunner=false, is3rd=false, isElim=false;
+
+    for(let r=0; r<=5; r++) {
+      matches[r].forEach(m => {
+        if(m.s1===null) return;
+        if(m.t1!==i && m.t2!==i) return;
+        // For display label: 3rd place match counts as SF level (round 3)
+        const rLabel = (r===5) ? 3 : r;
+        maxR = Math.max(maxR, rLabel);
+        if(m.win===i) {
+          w++;
+          if(r===4) isChamp  = true;
+          if(r===5) is3rd    = true;
+        } else if(m.win!==null) {
+          l++;
+          if(r===4) isRunner = true;       // lost the Final → Runner Up 🥈
+          else if(r!==3 && r!==5) isElim = true; // lost R32-QF → eliminated
+          // r===3 losers go to 3rd place match, not yet eliminated
+          // r===5 losers → 4th place, eliminated after 3rd place
+          if(r===5) isElim = true;
+        }
+      });
+    }
+
+    const status = isChamp  ? 'champ'
+                 : isRunner ? 'runner'
+                 : is3rd    ? '3rd'
+                 : isElim   ? 'elim'
+                 : maxR>=0  ? 'active'
+                 : 'wait';
+
+    return {t, i, w, l, maxR, status};
+  });
+
+  // Sort: 1st Champion, 2nd Runner-up, 3rd 3rd-place, then active by round, then eliminated, then waiting
+  const ORDER = {champ:0, runner:1, '3rd':2, active:3, wait:4, elim:5};
+  stats.sort((a,b) => {
+    if(a.status!==b.status) return ORDER[a.status]-ORDER[b.status];
+    if(b.maxR!==a.maxR) return b.maxR-a.maxR;
+    return a.t.seed-b.t.seed;
+  });
+
+  const RSHORT = ['R32','R16','QF','SF','Final'];
+  const MEDAL  = {champ:'🥇',runner:'🥈','3rd':'🥉'};
+  const PCLS   = {champ:'p1',runner:'p2','3rd':'p3'};
+  const SCLS   = {champ:'sa',runner:'sa','3rd':'sa',active:'sa',elim:'se',wait:'sw'};
+  const STXT   = {champ:'🥇 Champion',runner:'🥈 Runner Up','3rd':'🥉 Juara 3',
+                  active:'▶ Aktif',elim:'✕ Gugur',wait:'– Menunggu'};
+
+  document.getElementById('stbody').innerHTML = stats.map((s,pos) => {
+    const rl    = s.maxR>=0 ? RSHORT[s.maxR] : '–';
+    const medal = MEDAL[s.status]
+      ? `<span class="pb ${PCLS[s.status]}" style="margin-left:6px">${MEDAL[s.status]}</span>` : '';
+    const nb    = pos===0?'p1':pos===1?'p2':pos===2?'p3':'';
+    return `<tr>
+      <td><span class="pb ${nb}">${pos+1}</span></td>
+      <td><div style="display:flex;align-items:center;gap:7px">
+        <div style="width:8px;height:8px;border-radius:50%;background:${s.t.color};flex-shrink:0"></div>
+        <span>${h(s.t.name)}</span>${medal}
+      </div></td>
+      <td style="color:var(--muted);font-size:11px">${rl}</td>
+      <td style="color:var(--win)">${s.w}</td>
+      <td style="color:var(--lose)">${s.l}</td>
+      <td><span class="sb ${SCLS[s.status]}">${STXT[s.status]}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════
+function showTab(name, el_) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('panel-'+name).classList.add('on');
+  el_.classList.add('on');
+  if(name==='teams')     renderTeamEditor();
+  if(name==='standings') renderStandings();
+}
+
+// ══════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════
+function el(tag, cls) {
+  const e = document.createElement(tag);
+  if(cls) e.className = cls;
+  return e;
+}
+
+function h(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function resetAll() {
+  if(!confirm('Reset semua hasil?\nNama tim tetap tersimpan.')) return;
+  initMatches(); renderBracket(); renderStandings();
+}
+
+function exportData() {
+  const results = [];
+  for(let r=0;r<=5;r++){
+    matches[r].forEach((m,i)=>{
+      if(m.s1===null) return;
+      results.push({
+        round: r===5?'3rd Place Match':RNAMES[r],
+        match: r===5?'M32':'M'+(matchNum(r,i)),
+        team1: m.t1!==null?teams[m.t1].name:'TBD',
+        team2: m.t2!==null?teams[m.t2].name:'TBD',
+        score: `${m.s1}-${m.s2}`,
+        winner: m.win!==null?teams[m.win].name:null
+      });
+    });
+  }
+  const blob=new Blob([JSON.stringify({exported:new Date().toISOString(),teams:teams.map(t=>({...t})),results},null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ml-tournament.json'; a.click();
+}
+
+document.getElementById('overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+document.addEventListener('keydown',e=>{
+  if(activeR===null) return;
+  if(e.key==='Enter') submitScore();
+  if(e.key==='Escape') closeModal();
+});
+
+// ══════════════════════════════════════════════
+// SUPABASE CONFIG
+// ══════════════════════════════════════════════
+const SUPABASE_URL = 'https://gjivbsvukpepxpajmvyw.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqaXZic3Z1a3BlcHhwYWptdnl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MDM5ODYsImV4cCI6MjA5ODA3OTk4Nn0.lBiToMkZnXVj63TthgwlpMsR0tA13urHLlJYVIYaHy8';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ══════════════════════════════════════════════
+// TOAST & SYNC UI
+// ══════════════════════════════════════════════
+let toastTimer = null;
+function toast(msg, type='info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function setSyncState(state) {
+  // state: 'syncing' | 'synced' | 'err'
+  const dot = document.getElementById('sync-dot');
+  const txt = document.getElementById('sync-txt');
+  dot.className = 'sync-dot ' + state;
+  txt.textContent = state==='syncing' ? 'Menyimpan...' : state==='synced' ? 'Tersimpan' : 'Gagal sync';
+}
+
+function hideLoading() {
+  document.getElementById('loading-screen').classList.add('hidden');
+}
+
+// ══════════════════════════════════════════════
+// DB — TEAMS
+// ══════════════════════════════════════════════
+async function dbLoadTeams() {
+  const { data, error } = await sb.from('teams').select('*').order('seed');
+  if (error) { console.error(error); return false; }
+  if (data && data.length === 32) {
+    teams = data.map(row => ({
+      id:    row.id,
+      name:  row.name,
+      color: row.color,
+      seed:  row.seed,
+      logo:  row.logo_url || null
+    }));
+    return true;
+  }
+  return false; // no data yet, use defaults
+}
+
+async function dbSaveTeams() {
+  setSyncState('syncing');
+  const rows = teams.map(t => ({
+    id:       t.id || undefined,
+    name:     t.name,
+    color:    t.color,
+    seed:     t.seed,
+    logo_url: t.logo || null
+  }));
+  const { error } = await sb.from('teams').upsert(rows, { onConflict: 'id' });
+  if (error) { setSyncState('err'); toast('Gagal simpan tim: '+error.message,'err'); return false; }
+  setSyncState('synced');
+  return true;
+}
+
+async function dbSeedTeams() {
+  // Insert default teams for first time setup
+  setSyncState('syncing');
+  const rows = DEF_NAMES.map((name,i) => ({
+    name, color: DEF_COLORS[i], seed: i+1, logo_url: null
+  }));
+  const { data, error } = await sb.from('teams').insert(rows).select();
+  if (error) { setSyncState('err'); toast('Gagal init tim: '+error.message,'err'); return false; }
+  // Assign returned IDs
+  teams = data.map(row => ({ id:row.id, name:row.name, color:row.color, seed:row.seed, logo:null }));
+  setSyncState('synced');
+  return true;
+}
+
+// ══════════════════════════════════════════════
+// DB — MATCHES
+// ══════════════════════════════════════════════
+async function dbLoadMatches() {
+  const { data, error } = await sb.from('matches').select('*').order('round').order('position');
+  if (error) { console.error(error); return false; }
+  if (!data || data.length === 0) return false;
+
+  // Rebuild matches array from DB
+  initMatches(); // reset structure first
+
+  data.forEach(row => {
+    const r = row.round;
+    const i = row.position;
+    if (r > 5 || !matches[r] || !matches[r][i]) return;
+
+    // Convert DB team IDs back to local team indices
+    const t1idx  = row.team1_id  !== null ? teams.findIndex(t=>t.id===row.team1_id)  : null;
+    const t2idx  = row.team2_id  !== null ? teams.findIndex(t=>t.id===row.team2_id)  : null;
+    const winIdx = row.winner_id !== null ? teams.findIndex(t=>t.id===row.winner_id) : null;
+    const loseIdx= row.loser_id  !== null ? teams.findIndex(t=>t.id===row.loser_id)  : null;
+
+    matches[r][i] = {
+      dbId: row.id,
+      t1:   t1idx   >= 0 ? t1idx   : null,
+      t2:   t2idx   >= 0 ? t2idx   : null,
+      s1:   row.score1 !== null ? row.score1 : null,
+      s2:   row.score2 !== null ? row.score2 : null,
+      win:  winIdx  >= 0 ? winIdx  : null,
+      lose: loseIdx >= 0 ? loseIdx : null,
+    };
+  });
+  return true;
+}
+
+async function dbSaveMatch(r, i) {
+  const m  = matches[r][i];
+  const t1 = m.t1 !== null ? teams[m.t1] : null;
+  const t2 = m.t2 !== null ? teams[m.t2] : null;
+  const winner = m.win  !== null ? teams[m.win]  : null;
+  const loser  = m.lose !== null ? teams[m.lose] : null;
+
+  const row = {
+    round:      r,
+    position:   i,
+    team1_id:   t1     ? t1.id     : null,
+    team2_id:   t2     ? t2.id     : null,
+    score1:     m.s1,
+    score2:     m.s2,
+    winner_id:  winner ? winner.id : null,
+    loser_id:   loser  ? loser.id  : null,
+  };
+
+  setSyncState('syncing');
+  let error;
+  if (m.dbId) {
+    ({ error } = await sb.from('matches').update(row).eq('id', m.dbId));
+  } else {
+    const { data, error: e } = await sb.from('matches').insert(row).select().single();
+    error = e;
+    if (!error && data) matches[r][i].dbId = data.id;
+  }
+
+  if (error) { setSyncState('err'); toast('Gagal simpan match: '+error.message,'err'); return false; }
+  setSyncState('synced');
+  return true;
+}
+
+async function dbClearMatch(r, i) {
+  const m = matches[r][i];
+  if (!m.dbId) return;
+  setSyncState('syncing');
+  const row = { score1:null, score2:null, winner_id:null, loser_id:null };
+  const { error } = await sb.from('matches').update(row).eq('id', m.dbId);
+  if (error) { setSyncState('err'); toast('Gagal hapus hasil: '+error.message,'err'); return; }
+  setSyncState('synced');
+}
+
+// ══════════════════════════════════════════════
+// DB — LOGO UPLOAD
+// ══════════════════════════════════════════════
+async function dbUploadLogo(teamIdx, file) {
+  const t    = teams[teamIdx];
+  const ext  = file.name.split('.').pop();
+  const path = `team-${t.id || teamIdx}.${ext}`;
+
+  setSyncState('syncing');
+  const { error: upErr } = await sb.storage.from('team-logos').upload(path, file, { upsert: true });
+  if (upErr) { setSyncState('err'); toast('Gagal upload logo: '+upErr.message,'err'); return null; }
+
+  const { data } = sb.storage.from('team-logos').getPublicUrl(path);
+  const url = data.publicUrl;
+
+  // Save URL to teams table
+  const { error: dbErr } = await sb.from('teams').update({ logo_url: url }).eq('id', t.id);
+  if (dbErr) { setSyncState('err'); toast('Gagal simpan URL logo','err'); return null; }
+
+  setSyncState('synced');
+  toast('Logo berhasil diupload ✓', 'ok');
+  return url;
+}
+
+async function dbRemoveLogo(teamIdx) {
+  const t = teams[teamIdx];
+  setSyncState('syncing');
+  const { error } = await sb.from('teams').update({ logo_url: null }).eq('id', t.id);
+  if (error) { setSyncState('err'); toast('Gagal hapus logo','err'); return; }
+  setSyncState('synced');
+}
+
+// ══════════════════════════════════════════════
+// OVERRIDE uploadLogo to use Supabase Storage
+// ══════════════════════════════════════════════
+async function uploadLogo(i, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { toast('Maksimal 2MB','err'); return; }
+
+  // Preview immediately (base64)
+  const reader = new FileReader();
+  reader.onload = e => { teams[i].logo = e.target.result; renderTeamEditor(); renderBracket(); };
+  reader.readAsDataURL(file);
+
+  // Upload to Supabase in background
+  const url = await dbUploadLogo(i, file);
+  if (url) {
+    teams[i].logo = url; // replace base64 with permanent URL
+    renderTeamEditor(); renderBracket();
+  }
+}
+
+async function removeLogo(i) {
+  teams[i].logo = null;
+  renderTeamEditor(); renderBracket();
+  await dbRemoveLogo(i);
+}
+
+// ══════════════════════════════════════════════
+// OVERRIDE submitScore to save to DB
+// ══════════════════════════════════════════════
+async function submitScore() {
+  const m  = matches[activeR][activeI];
+  const s1 = Math.max(0, parseInt(document.getElementById('si1').value)||0);
+  const s2 = Math.max(0, parseInt(document.getElementById('si2').value)||0);
+  const wn = activeR <= 4 ? RWIN[activeR] : WIN_3RD;
+  const err = document.getElementById('merr');
+
+  if (s1 > wn || s2 > wn)   { err.textContent='Skor melebihi batas seri'; return; }
+  if (s1===wn && s2===wn)    { err.textContent='Tidak bisa keduanya menang'; return; }
+
+  m.s1  = s1; m.s2 = s2;
+  m.win = s1 >= wn ? m.t1 : s2 >= wn ? m.t2 : null;
+  if (m.win !== null) m.lose = (m.win === m.t1) ? m.t2 : m.t1;
+  else m.lose = null;
+
+  const savedR = activeR, savedI = activeI;
+  clearDown(activeR, activeI);
+  closeModal();
+  renderBracket();
+  renderStandings();
+
+  await dbSaveMatch(savedR, savedI);
+  toast('Skor tersimpan ✓', 'ok');
+}
+
+// ══════════════════════════════════════════════
+// OVERRIDE clearResult to sync DB
+// ══════════════════════════════════════════════
+async function clearResult(r, i) {
+  const m = matches[r][i];
+  m.s1=null; m.s2=null; m.win=null; m.lose=null;
+  clearDown(r, i);
+  renderBracket(); renderStandings();
+  await dbClearMatch(r, i);
+  toast('Hasil dihapus', 'info');
+}
+
+// ══════════════════════════════════════════════
+// OVERRIDE setName & setColor to sync DB
+// ══════════════════════════════════════════════
+let nameTimer = null;
+function setName(i, v) {
+  teams[i].name = v || `Tim ${i+1}`;
+  renderBracket(); renderStandings();
+  clearTimeout(nameTimer);
+  nameTimer = setTimeout(()=>dbSaveTeams(), 800); // debounce
+}
+
+let colorTimer = null;
+function setColor(i, v) {
+  teams[i].color = v;
+  const d = document.getElementById('cd'+i); if(d) d.style.background=v;
+  renderBracket();
+  clearTimeout(colorTimer);
+  colorTimer = setTimeout(()=>dbSaveTeams(), 500);
+}
+
+// ══════════════════════════════════════════════
+// OVERRIDE randomSeeds & resetNames
+// ══════════════════════════════════════════════
+async function randomSeeds() {
+  for(let i=teams.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [teams[i],teams[j]]=[teams[j],teams[i]];
+  }
+  teams.forEach((t,i)=>t.seed=i+1);
+  initMatches();
+  renderBracket(); renderTeamEditor(); renderStandings();
+  await dbSaveTeams();
+  toast('Seeding diacak & tersimpan ✓','ok');
+}
+
+async function resetNames() {
+  if(!confirm('Reset semua nama, warna & logo ke default?')) return;
+  // Keep IDs, reset other fields
+  teams.forEach((t,i)=>{ t.name=DEF_NAMES[i]; t.color=DEF_COLORS[i]; t.seed=i+1; t.logo=null; });
+  initMatches();
+  renderBracket(); renderTeamEditor(); renderStandings();
+  await dbSaveTeams();
+  toast('Data direset ✓','ok');
+}
+
+// ══════════════════════════════════════════════
+// OVERRIDE resetAll
+// ══════════════════════════════════════════════
+async function resetAll() {
+  if(!confirm('Reset semua hasil pertandingan?\nNama tim tetap tersimpan.')) return;
+  // Clear all match results in DB
+  setSyncState('syncing');
+  const { error } = await sb.from('matches').update({
+    score1:null,score2:null,winner_id:null,loser_id:null
+  }).neq('id',0); // update all
+  if(error){ setSyncState('err'); toast('Gagal reset','err'); return; }
+  setSyncState('synced');
+  initMatches(); renderBracket(); renderStandings();
+  toast('Semua hasil direset ✓','ok');
+}
+
+// ══════════════════════════════════════════════
+// BOOT — Load from Supabase
+// ══════════════════════════════════════════════
+async function boot() {
+  try {
+    // 1. Load teams
+    const hasTeams = await dbLoadTeams();
+    if (!hasTeams) {
+      // First time: seed default teams into DB
+      await dbSeedTeams();
+    }
+
+    // 2. Init match structure
+    initMatches();
+
+    // 3. Load match results
+    await dbLoadMatches();
+
+    // 4. Render everything
+    renderBracket();
+    renderStandings();
+
+    setSyncState('synced');
+    hideLoading();
+    toast('Data berhasil dimuat ✓','ok');
+  } catch(e) {
+    console.error(e);
+    // Fallback: run offline
+    initMatches();
+    renderBracket();
+    hideLoading();
+    toast('Mode offline — tidak terhubung ke database','err');
+    setSyncState('err');
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
