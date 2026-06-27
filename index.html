@@ -178,7 +178,38 @@ tr:hover td{background:var(--surf2)}
 .merr{font-size:11px;color:var(--lose);text-align:center;margin-top:6px;min-height:15px}
 .mbtns{display:flex;gap:8px;margin-top:16px}
 .mbtns .btn{flex:1;padding:9px}
-/* LOADING OVERLAY */
+/* ADMIN LOGIN */
+.admin-btn{position:fixed;bottom:20px;right:20px;z-index:400;
+  background:var(--surf2);border:1px solid var(--bdr);border-radius:50%;
+  width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:16px;transition:all .2s;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.admin-btn:hover{border-color:var(--acc);box-shadow:0 0 12px rgba(0,212,255,.3)}
+.admin-btn.active{background:rgba(0,212,255,.15);border-color:var(--acc)}
+
+.login-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);
+  z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(5px)}
+.login-overlay.on{display:flex}
+.login-modal{background:var(--surf);border:1px solid var(--bdr);border-radius:12px;
+  padding:28px;width:300px;box-shadow:0 24px 48px rgba(0,0,0,.6);text-align:center}
+.login-modal h3{font-family:'Orbitron',monospace;font-size:12px;letter-spacing:2px;
+  color:var(--acc);margin-bottom:6px}
+.login-modal p{font-size:12px;color:var(--muted);margin-bottom:20px}
+.pin-inputs{display:flex;gap:10px;justify-content:center;margin-bottom:16px}
+.pin-inp{width:44px;height:52px;background:var(--surf2);border:1.5px solid var(--bdr);
+  border-radius:8px;color:var(--txt);font-family:'Orbitron',monospace;font-size:22px;
+  font-weight:700;text-align:center;outline:none;transition:border-color .15s}
+.pin-inp:focus{border-color:var(--acc)}
+.pin-err{font-size:11px;color:var(--lose);min-height:16px;margin-bottom:10px}
+.login-btns{display:flex;gap:8px}
+.login-btns .btn{flex:1;padding:9px}
+
+/* Hide admin-only elements in view mode */
+body.view-mode .admin-only{display:none!important}
+body.view-mode .mc{cursor:default!important}
+body.view-mode .mc:hover{border-color:var(--bdr)!important;box-shadow:none!important}
+body.view-mode .clrbtn{display:none!important}
+body.view-mode .hbtns .btn-s{display:none}
+
 .loading-screen{position:fixed;inset:0;background:var(--bg);z-index:999;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
 .loading-screen.hidden{display:none}
@@ -209,7 +240,28 @@ tr:hover td{background:var(--surf2)}
 </head>
 <body>
 
-<!-- Loading screen -->
+<!-- Admin login modal -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-modal">
+    <h3>🔐 ADMIN LOGIN</h3>
+    <p>Masukkan PIN 4 digit untuk akses admin</p>
+    <div class="pin-inputs">
+      <input class="pin-inp" type="password" maxlength="1" id="p0" oninput="pinInput(0)" onkeydown="pinKey(event,0)">
+      <input class="pin-inp" type="password" maxlength="1" id="p1" oninput="pinInput(1)" onkeydown="pinKey(event,1)">
+      <input class="pin-inp" type="password" maxlength="1" id="p2" oninput="pinInput(2)" onkeydown="pinKey(event,2)">
+      <input class="pin-inp" type="password" maxlength="1" id="p3" oninput="pinInput(3)" onkeydown="pinKey(event,3)">
+    </div>
+    <div class="pin-err" id="pin-err"></div>
+    <div class="login-btns">
+      <button class="btn btn-s" onclick="closeLogin()">Batal</button>
+      <button class="btn btn-p" onclick="submitPin()">Masuk</button>
+    </div>
+  </div>
+</div>
+
+<!-- Floating admin button -->
+<button class="admin-btn" id="admin-btn" onclick="toggleAdminLogin()" title="Admin Login">🔐</button>
+
 <div class="loading-screen" id="loading-screen">
   <div class="spinner"></div>
   <div class="loading-txt">Memuat data turnamen...</div>
@@ -231,7 +283,7 @@ tr:hover td{background:var(--surf2)}
 
 <div class="tabs">
   <button class="tab on"  onclick="showTab('bracket',this)">🏆 Bracket</button>
-  <button class="tab"     onclick="showTab('teams',this)">✏️ Edit Tim</button>
+  <button class="tab admin-only" onclick="showTab('teams',this)">✏️ Edit Tim</button>
   <button class="tab"     onclick="showTab('standings',this)">📊 Standings</button>
 </div>
 
@@ -553,7 +605,7 @@ function buildCard(m, r, i, isBronze) {
   const done = m.s1 !== null;
 
   const card = el('div', 'mc' + (done?' done':'') + (isBronze?' bronze-match':''));
-  card.addEventListener('click', () => openModal(r, i));
+  card.addEventListener('click', () => { if(isAdmin) openModal(r, i); });
 
   if (done) {
     const cb = el('button','clrbtn');
@@ -973,28 +1025,43 @@ async function dbLoadTeams() {
 
 async function dbSaveTeams() {
   setSyncState('syncing');
-  const rows = teams.map(t => ({
-    id:       t.id || undefined,
-    name:     t.name,
-    color:    t.color,
-    seed:     t.seed,
-    logo_url: t.logo || null
-  }));
-  const { error } = await sb.from('teams').upsert(rows, { onConflict: 'id' });
-  if (error) { setSyncState('err'); toast('Gagal simpan tim: '+error.message,'err'); return false; }
+  // Separate teams that already have DB id (update) vs new ones (insert)
+  const toUpdate = teams.filter(t => t.id);
+  const toInsert = teams.filter(t => !t.id);
+
+  if (toUpdate.length > 0) {
+    for (const t of toUpdate) {
+      const { error } = await sb.from('teams').update({
+        name: t.name, color: t.color, seed: t.seed, logo_url: t.logo || null
+      }).eq('id', t.id);
+      if (error) { setSyncState('err'); toast('Gagal simpan tim: '+error.message,'err'); return false; }
+    }
+  }
+
+  if (toInsert.length > 0) {
+    const rows = toInsert.map(t => ({
+      name: t.name, color: t.color, seed: t.seed, logo_url: t.logo || null
+    }));
+    const { data, error } = await sb.from('teams').insert(rows).select();
+    if (error) { setSyncState('err'); toast('Gagal simpan tim: '+error.message,'err'); return false; }
+    // Assign returned IDs back to teams
+    if (data) {
+      data.forEach((row, i) => { toInsert[i].id = row.id; });
+    }
+  }
+
   setSyncState('synced');
   return true;
 }
 
 async function dbSeedTeams() {
-  // Insert default teams for first time setup
   setSyncState('syncing');
   const rows = DEF_NAMES.map((name,i) => ({
     name, color: DEF_COLORS[i], seed: i+1, logo_url: null
+    // no id field — let database auto-generate
   }));
   const { data, error } = await sb.from('teams').insert(rows).select();
   if (error) { setSyncState('err'); toast('Gagal init tim: '+error.message,'err'); return false; }
-  // Assign returned IDs
   teams = data.map(row => ({ id:row.id, name:row.name, color:row.color, seed:row.seed, logo:null }));
   setSyncState('synced');
   return true;
@@ -1239,9 +1306,90 @@ async function resetAll() {
 }
 
 // ══════════════════════════════════════════════
-// BOOT — Load from Supabase
+// ADMIN AUTH — PIN
 // ══════════════════════════════════════════════
+const ADMIN_PIN = '1234'; // ← GANTI PIN KAMU DI SINI
+let isAdmin = false;
+
+function toggleAdminLogin() {
+  if (isAdmin) {
+    // Logout
+    if (!confirm('Keluar dari mode admin?')) return;
+    isAdmin = false;
+    document.body.classList.add('view-mode');
+    document.getElementById('admin-btn').classList.remove('active');
+    document.getElementById('admin-btn').textContent = '🔐';
+    // Switch to bracket tab if on teams tab
+    const teamsPanel = document.getElementById('panel-teams');
+    if (teamsPanel.classList.contains('on')) {
+      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+      document.getElementById('panel-bracket').classList.add('on');
+      document.querySelector('.tab').classList.add('on');
+    }
+    toast('Keluar dari mode admin', 'info');
+  } else {
+    // Open login
+    document.getElementById('login-overlay').classList.add('on');
+    // Clear pin inputs
+    [0,1,2,3].forEach(i => document.getElementById('p'+i).value='');
+    document.getElementById('pin-err').textContent = '';
+    setTimeout(()=>document.getElementById('p0').focus(), 100);
+  }
+}
+
+function closeLogin() {
+  document.getElementById('login-overlay').classList.remove('on');
+}
+
+function pinInput(idx) {
+  const val = document.getElementById('p'+idx).value;
+  if (val && idx < 3) {
+    document.getElementById('p'+(idx+1)).focus();
+  }
+  // Auto submit when all 4 filled
+  const pin = [0,1,2,3].map(i=>document.getElementById('p'+i).value).join('');
+  if (pin.length === 4) setTimeout(submitPin, 100);
+}
+
+function pinKey(e, idx) {
+  if (e.key === 'Backspace' && !document.getElementById('p'+idx).value && idx > 0) {
+    document.getElementById('p'+(idx-1)).focus();
+  }
+  if (e.key === 'Enter') submitPin();
+}
+
+function submitPin() {
+  const pin = [0,1,2,3].map(i=>document.getElementById('p'+i).value).join('');
+  if (pin === ADMIN_PIN) {
+    isAdmin = true;
+    document.body.classList.remove('view-mode');
+    document.getElementById('admin-btn').classList.add('active');
+    document.getElementById('admin-btn').textContent = '✓';
+    closeLogin();
+    toast('Mode admin aktif ✓', 'ok');
+  } else {
+    document.getElementById('pin-err').textContent = 'PIN salah, coba lagi';
+    [0,1,2,3].forEach(i => document.getElementById('p'+i).value='');
+    document.getElementById('p0').focus();
+    // Shake animation
+    const modal = document.querySelector('.login-modal');
+    modal.style.animation = 'none';
+    modal.offsetHeight;
+    modal.style.animation = 'shake .3s ease';
+  }
+}
+
+// Add shake keyframe dynamically
+const shakeStyle = document.createElement('style');
+shakeStyle.textContent = '@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}';
+document.head.appendChild(shakeStyle);
+
+
 async function boot() {
+  // Start in view mode by default
+  document.body.classList.add('view-mode');
+
   try {
     // 1. Load teams
     const hasTeams = await dbLoadTeams();
