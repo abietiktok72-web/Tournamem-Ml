@@ -133,6 +133,10 @@ input[type=file]{display:none}
   color:#fff;font-size:8px;display:flex;align-items:center;justify-content:center;
   opacity:0;transition:opacity .15s;line-height:1}
 .logo-upload:hover .logo-remove{opacity:1}
+.team-delete-btn{flex-shrink:0;background:transparent;border:1px solid rgba(239,68,68,.35);color:var(--lose);
+  border-radius:5px;padding:5px 7px;font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;
+  cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.team-delete-btn:hover{background:rgba(239,68,68,.12);border-color:var(--lose);color:#fff}
 
 /* STANDINGS */
 .swrap{padding:24px;max-width:800px;margin:0 auto}
@@ -1234,9 +1238,66 @@ function renderTeamEditor() {
         <input type="file" id="lf${i}" accept="image/*" onchange="uploadLogo(${i},this)">
       </div>
       <input class="ninp" type="text" value="${h(t.name)}"
-        oninput="setName(${i},this.value)" onblur="saveTeamField(${i})" placeholder="Nama Tim">`;
+        oninput="setName(${i},this.value)" onblur="saveTeamField(${i})" placeholder="Nama Tim">
+      <button class="team-delete-btn" type="button" onclick="event.stopPropagation();removeTeam(${i})" title="Hapus tim">Hapus</button>`;
     g.appendChild(c);
   });
+}
+
+async function removeTeam(i) {
+  if (!isAdmin) {
+    toast('Login admin diperlukan untuk menghapus tim','err');
+    return;
+  }
+
+  const t = teams[i];
+  if (!t) return;
+
+  const affected = [];
+  matches.forEach((round, r) => round.forEach((m, j) => {
+    if (m.t1 === i || m.t2 === i || m.win === i || m.lose === i) {
+      affected.push({ r, i:j, dbId:m.dbId });
+    }
+  }));
+
+  const warning = affected.length
+    ? '\n\nTim ini sudah dipakai di ' + affected.length + ' match. Slot dan hasil match terkait akan dikosongkan.'
+    : '';
+
+  if (!confirm('Hapus tim "' + t.name + '" dari Team Pool?' + warning)) return;
+
+  const deleted = await dbDeleteTeam(t.id || null, affected);
+  if (!deleted) return;
+
+  matches.forEach(round => round.forEach(m => {
+    const remap = key => {
+      if (m[key] === i) return null;
+      if (typeof m[key] === 'number' && m[key] > i) return m[key] - 1;
+      return m[key];
+    };
+
+    const hadDeletedTeam = [m.t1,m.t2,m.win,m.lose].some(v => v === i);
+    m.t1 = remap('t1');
+    m.t2 = remap('t2');
+    m.win = remap('win');
+    m.lose = remap('lose');
+
+    if (hadDeletedTeam) {
+      m.s1 = null;
+      m.s2 = null;
+      m.win = null;
+      m.lose = null;
+    }
+  }));
+
+  teams.splice(i, 1);
+  teams.forEach((team, idx) => { team.seed = idx + 1; });
+
+  renderTeamEditor();
+  renderBracket();
+  renderStandings();
+  refreshExistingTeamOptions();
+  toast('Tim "' + t.name + '" berhasil dihapus', 'ok');
 }
 
 function uploadLogo(i, input) {
@@ -1737,6 +1798,42 @@ async function dbSaveTeams() {
 
   setSyncState('synced');
   return true;
+}
+
+async function dbDeleteTeam(teamId, affected) {
+  setSyncState('syncing');
+
+  try {
+    for (const item of affected) {
+      if (!item.dbId) continue;
+
+      const { error } = await sb.from('matches')
+        .update({
+          team1_id: null,
+          team2_id: null,
+          score1: null,
+          score2: null,
+          winner_id: null,
+          loser_id: null
+        })
+        .eq('id', item.dbId);
+
+      if (error) throw error;
+    }
+
+    if (teamId) {
+      const { error } = await sb.from('teams').delete().eq('id', teamId);
+      if (error) throw error;
+    }
+
+    setSyncState('synced');
+    return true;
+  } catch (e) {
+    console.error('Delete team error:', e);
+    setSyncState('err');
+    toast('Gagal hapus tim: ' + (e.message || 'unknown error'), 'err');
+    return false;
+  }
 }
 
 async function dbSaveMatch(r, i) {
