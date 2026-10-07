@@ -1399,7 +1399,7 @@ async function refreshAdminState() {
 
   const { data, error } = await sb
     .from('admin_users')
-    .select('role')
+    .select('user_id')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -1409,7 +1409,7 @@ async function refreshAdminState() {
     return false;
   }
 
-  const active = !!data && data.role === 'admin';
+  const active = !!data && data.user_id === user.id;
   applyAdminState(active, user);
   return active;
 }
