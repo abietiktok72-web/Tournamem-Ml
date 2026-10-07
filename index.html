@@ -203,6 +203,11 @@ tr:hover td{background:var(--surf2)}
 .login-btns{display:flex;gap:8px}
 .login-btns .btn{flex:1;padding:9px}
 
+/* SUPABASE AUTH */
+.auth-input{width:100%;background:var(--surf2);border:1px solid var(--bdr);border-radius:7px;padding:10px 11px;color:var(--txt);font-family:Inter,sans-serif;font-size:12px;outline:none;margin-bottom:9px;transition:border-color .15s}
+.auth-input:focus{border-color:var(--acc)}
+.auth-user{font-family:'Rajdhani',sans-serif;font-size:10px;color:var(--win);margin-top:8px;min-height:14px;word-break:break-all}
+
 /* Hide admin-only elements in view mode */
 body.view-mode .admin-only{display:none!important}
 body.view-mode .mc{cursor:default!important}
@@ -246,17 +251,13 @@ body.view-mode .hbtns .btn-s{display:none}
 <div class="login-overlay" id="login-overlay">
   <div class="login-modal">
     <h3>🔐 ADMIN LOGIN</h3>
-    <p>Masukkan PIN 4 digit untuk akses admin</p>
-    <div class="pin-inputs">
-      <input class="pin-inp" type="password" maxlength="1" id="p0" oninput="pinInput(0)" onkeydown="pinKey(event,0)">
-      <input class="pin-inp" type="password" maxlength="1" id="p1" oninput="pinInput(1)" onkeydown="pinKey(event,1)">
-      <input class="pin-inp" type="password" maxlength="1" id="p2" oninput="pinInput(2)" onkeydown="pinKey(event,2)">
-      <input class="pin-inp" type="password" maxlength="1" id="p3" oninput="pinInput(3)" onkeydown="pinKey(event,3)">
-    </div>
-    <div class="pin-err" id="pin-err"></div>
+    <p>Login dengan akun admin Supabase</p>
+    <input class="auth-input" type="email" id="auth-email" autocomplete="email" placeholder="Email admin">
+    <input class="auth-input" type="password" id="auth-password" autocomplete="current-password" placeholder="Password">
+    <div class="pin-err" id="auth-err"></div>
     <div class="login-btns">
       <button class="btn btn-s" onclick="closeLogin()">Batal</button>
-      <button class="btn btn-p" onclick="submitPin()">Masuk</button>
+      <button class="btn btn-p" id="auth-submit-btn" onclick="submitLogin()">Masuk</button>
     </div>
   </div>
 </div>
@@ -699,6 +700,7 @@ function svgPath(svg, d, stroke, width, dashed) {
 // MODAL
 // ══════════════════════════════════════════════
 function openModal(r, i) {
+  if (!isAdmin) return;
   const m  = matches[r][i];
   const t1 = m.t1 !== null ? teams[m.t1] : null;
   const t2 = m.t2 !== null ? teams[m.t2] : null;
@@ -923,6 +925,7 @@ function renderStandings() {
 // TABS
 // ══════════════════════════════════════════════
 function showTab(name, el_) {
+  if (name === 'teams' && !isAdmin) return;
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById('panel-'+name).classList.add('on');
@@ -1342,6 +1345,7 @@ async function resetNames() {
 // OVERRIDE resetAll
 // ══════════════════════════════════════════════
 async function resetAll() {
+  if(!isAdmin) return;
   if(!confirm('Reset semua hasil pertandingan?\nNama tim tetap tersimpan.')) return;
   // Clear all match results in DB
   setSyncState('syncing');
@@ -1355,20 +1359,25 @@ async function resetAll() {
 }
 
 // ══════════════════════════════════════════════
-// ADMIN AUTH — PIN
-// ══════════════════════════════════════════════
-const ADMIN_PIN = '1776'; // ← GANTI PIN KAMU DI SINI
+// ADMIN AUTH — SUPABASE AUTH + RLS
+// UI state is only for convenience; database security is enforced by RLS.
 let isAdmin = false;
+let authUser = null;
 
-function toggleAdminLogin() {
+function applyAdminState(active, user = null) {
+  isAdmin = !!active;
+  authUser = user || authUser;
+
   if (isAdmin) {
-    // Logout
-    if (!confirm('Keluar dari mode admin?')) return;
-    isAdmin = false;
+    document.body.classList.remove('view-mode');
+    document.getElementById('admin-btn').classList.add('active');
+    document.getElementById('admin-btn').textContent = '✓';
+    document.getElementById('admin-btn').title = 'Logout admin';
+  } else {
     document.body.classList.add('view-mode');
     document.getElementById('admin-btn').classList.remove('active');
     document.getElementById('admin-btn').textContent = '🔐';
-    // Switch to bracket tab if on teams tab
+    document.getElementById('admin-btn').title = 'Admin Login';
     const teamsPanel = document.getElementById('panel-teams');
     if (teamsPanel.classList.contains('on')) {
       document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
@@ -1376,75 +1385,118 @@ function toggleAdminLogin() {
       document.getElementById('panel-bracket').classList.add('on');
       document.querySelector('.tab').classList.add('on');
     }
-    toast('Keluar dari mode admin', 'info');
-  } else {
-    // Open login
-    document.getElementById('login-overlay').classList.add('on');
-    // Clear pin inputs
-    [0,1,2,3].forEach(i => document.getElementById('p'+i).value='');
-    document.getElementById('pin-err').textContent = '';
-    setTimeout(()=>document.getElementById('p0').focus(), 100);
   }
+}
+
+async function refreshAdminState() {
+  const { data: { user } } = await sb.auth.getUser();
+  authUser = user || null;
+
+  if (!user) {
+    applyAdminState(false, null);
+    return false;
+  }
+
+  const { data, error } = await sb
+    .from('admin_users')
+    .select('role')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Admin check error:', error);
+    applyAdminState(false, user);
+    return false;
+  }
+
+  const active = !!data && data.role === 'admin';
+  applyAdminState(active, user);
+  return active;
+}
+
+function toggleAdminLogin() {
+  if (isAdmin) {
+    logoutAdmin();
+    return;
+  }
+
+  document.getElementById('login-overlay').classList.add('on');
+  document.getElementById('auth-err').textContent = '';
+  document.getElementById('auth-email').focus();
 }
 
 function closeLogin() {
   document.getElementById('login-overlay').classList.remove('on');
 }
 
-function pinInput(idx) {
-  const val = document.getElementById('p'+idx).value;
-  if (val && idx < 3) {
-    document.getElementById('p'+(idx+1)).focus();
-  }
-  // Auto submit when all 4 filled
-  const pin = [0,1,2,3].map(i=>document.getElementById('p'+i).value).join('');
-  if (pin.length === 4) setTimeout(submitPin, 100);
-}
+async function submitLogin() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const err = document.getElementById('auth-err');
+  const btn = document.getElementById('auth-submit-btn');
 
-function pinKey(e, idx) {
-  if (e.key === 'Backspace' && !document.getElementById('p'+idx).value && idx > 0) {
-    document.getElementById('p'+(idx-1)).focus();
+  err.textContent = '';
+  if (!email || !password) {
+    err.textContent = 'Email dan password wajib diisi';
+    return;
   }
-  if (e.key === 'Enter') submitPin();
-}
 
-function submitPin() {
-  const pin = [0,1,2,3].map(i=>document.getElementById('p'+i).value).join('');
-  if (pin === ADMIN_PIN) {
-    isAdmin = true;
-    document.body.classList.remove('view-mode');
-    document.getElementById('admin-btn').classList.add('active');
-    document.getElementById('admin-btn').textContent = '✓';
+  btn.disabled = true;
+  btn.textContent = 'Masuk...';
+
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+
+    const ok = await refreshAdminState();
+    if (!ok) {
+      await sb.auth.signOut();
+      throw new Error('Akun ini belum terdaftar sebagai admin.');
+    }
+
     closeLogin();
-    toast('Mode admin aktif ✓', 'ok');
-  } else {
-    document.getElementById('pin-err').textContent = 'PIN salah, coba lagi';
-    [0,1,2,3].forEach(i => document.getElementById('p'+i).value='');
-    document.getElementById('p0').focus();
-    // Shake animation
-    const modal = document.querySelector('.login-modal');
-    modal.style.animation = 'none';
-    modal.offsetHeight;
-    modal.style.animation = 'shake .3s ease';
+    document.getElementById('auth-password').value = '';
+    toast('Login admin berhasil ✓', 'ok');
+  } catch (e) {
+    console.error('Login error:', e);
+    err.textContent = e.message || 'Login gagal';
+    applyAdminState(false);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Masuk';
   }
 }
 
-// Add shake keyframe dynamically
-const shakeStyle = document.createElement('style');
-shakeStyle.textContent = '@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}';
-document.head.appendChild(shakeStyle);
+async function logoutAdmin() {
+  if (!confirm('Keluar dari mode admin?')) return;
+  const { error } = await sb.auth.signOut();
+  if (error) {
+    toast('Gagal logout: ' + error.message, 'err');
+    return;
+  }
+  applyAdminState(false, null);
+  toast('Keluar dari mode admin', 'info');
+}
 
+sb.auth.onAuthStateChange((event, session) => {
+  authUser = session?.user || null;
+  // Avoid awaiting Supabase calls inside the auth callback.
+  setTimeout(() => refreshAdminState(), 0);
+});
 
 async function boot() {
-  // Start in view mode by default
+  // Public viewer by default. Admin access comes from Supabase Auth + admin_users.
   document.body.classList.add('view-mode');
 
   try {
+    await refreshAdminState();
+
     // 1. Load teams
     const hasTeams = await dbLoadTeams();
     if (!hasTeams) {
-      // First time: seed default teams into DB
-      await dbSeedTeams();
+      // Do not seed production data from an anonymous browser.
+      // The existing tournament data should already be present in Supabase.
+      throw new Error('Data tim belum tersedia di database.');
     }
 
     // 2. Init match structure
@@ -1462,15 +1514,14 @@ async function boot() {
     toast('Data berhasil dimuat ✓','ok');
   } catch(e) {
     console.error(e);
-    // Fallback: run offline
     initMatches();
     renderBracket();
+    renderStandings();
     hideLoading();
-    toast('Mode offline — tidak terhubung ke database','err');
+    toast(e.message || 'Mode offline — tidak terhubung ke database','err');
     setSyncState('err');
   }
 }
-
 boot();
 </script>
 </body>
