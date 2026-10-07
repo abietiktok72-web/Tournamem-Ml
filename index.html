@@ -751,7 +751,7 @@ body.view-mode .hbtns .btn-s{display:none}
 
 <div id="panel-teams" class="panel">
   <div class="ewrap">
-    <div class="page-head"><div><div class="eyebrow">TEAM MANAGEMENT</div><div class="page-title">Team Pool</div><div class="page-sub">Buat roster tim dan siapkan logo sebelum memasukkannya ke bracket.</div></div><div class="page-actions"><button class="btn btn-p" onclick="openTeamPoolModal()">Tambah Tim</button><button class="btn btn-s" onclick="clearBracketSetup()">Reset Bracket</button></div></div><div class="team-toolbar"><div><strong id="team-count">0</strong> tim tersedia</div><div>Perubahan tersimpan otomatis</div></div>
+    <div class="page-head"><div><div class="eyebrow">TEAM MANAGEMENT</div><div class="page-title">Team Pool</div><div class="page-sub">Buat roster tim dan siapkan logo sebelum memasukkannya ke bracket.</div></div><div class="page-actions"><button class="btn btn-p" onclick="openTeamPoolModal()">Tambah Tim</button><button class="btn btn-s" onclick="clearBracketSetup()">Reset Bracket</button><button class="btn btn-s" onclick="removeAllTeams()">Hapus Semua Tim</button></div></div><div class="team-toolbar"><div><strong id="team-count">0</strong> tim tersedia</div><div>Perubahan tersimpan otomatis</div></div>
     <div class="tgrid" id="tgrid"></div>
   </div>
 </div>
@@ -759,7 +759,7 @@ body.view-mode .hbtns .btn-s{display:none}
 <div id="panel-standings" class="panel">
   <div class="swrap">
     <div class="page-head standings-head"><div><div class="eyebrow">TOURNAMENT OVERVIEW</div><div class="page-title">Standings</div><div class="page-sub">Posisi, hasil pertandingan, dan progres setiap tim.</div></div><div class="standings-summary" id="standings-summary"></div></div><div class="standings-card"><table>
-      <thead><tr><th>#</th><th>Tim</th><th>Babak</th><th>W</th><th>L</th><th>Status</th></tr></thead>
+      <thead><tr><th>#</th><th>Tim</th><th>Babak</th><th>W</th><th>Game Menang</th><th>L</th><th>Status</th></tr></thead>
       <tbody id="stbody"></tbody>
     </table></div>
   </div>
@@ -1060,7 +1060,7 @@ function renderBracket() {
   const cc = el('div','podium-card champ-card');
   cc.style.cssText = `left:${cx}px;top:${cy}px`;
   const champLogoHTML = champ && champ.logo
-    ? `<img src="${champ.logo}" style="width:40px;height:40px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
+    ? `<img src="${champ.logo}" alt="${h(champ.name)}" style="width:40px;height:40px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
     : `<div class="pc-crown">1</div>`;
   cc.innerHTML = `${champLogoHTML}<div class="pc-lbl">Champion</div>
     <div class="pc-name">${champ ? h(champ.name) : '???'}</div>`;
@@ -1072,7 +1072,7 @@ function renderBracket() {
   const rc = el('div','podium-card runner-card');
   rc.style.cssText = `left:${rcx}px;top:${rcy}px`;
   const runnerLogoHTML = runner && runner.logo
-    ? `<img src="${runner.logo}" style="width:36px;height:36px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
+    ? `<img src="${runner.logo}" alt="${h(runner.name)}" style="width:36px;height:36px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
     : `<div class="pc-crown">2</div>`;
   rc.innerHTML = `${runnerLogoHTML}<div class="pc-lbl">Runner Up</div>
     <div class="pc-name">${runner ? h(runner.name) : '???'}</div>`;
@@ -1084,7 +1084,7 @@ function renderBracket() {
   const bc = el('div','podium-card bronze-card');
   bc.style.cssText = `left:${bx}px;top:${by}px`;
   const thirdLogoHTML = third && third.logo
-    ? `<img src="${third.logo}" style="width:36px;height:36px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
+    ? `<img src="${third.logo}" alt="${h(third.name)}" style="width:36px;height:36px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
     : `<div class="pc-crown">3</div>`;
   bc.innerHTML = `${thirdLogoHTML}<div class="pc-lbl">Juara 3</div>
     <div class="pc-name">${third ? h(third.name) : '???'}</div>`;
@@ -1355,6 +1355,33 @@ async function removeTeam(i) {
   toast('Tim "' + t.name + '" berhasil dihapus', 'ok');
 }
 
+async function removeAllTeams() {
+  if (!isAdmin) {
+    toast('Login admin diperlukan untuk menghapus semua tim','err');
+    return;
+  }
+
+  if (teams.length === 0) {
+    toast('Team Pool sudah kosong','info');
+    return;
+  }
+
+  const ok = confirm(
+    'HAPUS SEMUA TIM?\n\nSemua tim akan dihapus dari Team Pool dan semua slot/hasil bracket akan dikosongkan. Tindakan ini tidak bisa dibatalkan.'
+  );
+  if (!ok) return;
+
+  const deleted = await dbDeleteAllTeams();
+  if (!deleted) return;
+
+  teams = [];
+  initMatches();
+  renderTeamEditor();
+  renderBracket();
+  renderStandings();
+  refreshExistingTeamOptions();
+  toast('Semua tim berhasil dihapus ✓','ok');
+}
 function uploadLogo(i, input) {
   const file = input.files[0];
   if (!file) return;
@@ -1570,13 +1597,15 @@ function renderStandings() {
   const m3     = matches[5][0];
 
   const stats = teams.map((t,i) => {
-    let w=0, l=0, maxR=-1;
+    let w=0, l=0, gw=0, maxR=-1;
     let isChamp=false, isRunner=false, is3rd=false, isElim=false;
 
     for(let r=0; r<=5; r++) {
       matches[r].forEach(m => {
         if(m.s1===null) return;
         if(m.t1!==i && m.t2!==i) return;
+        // Total individual games won across completed BO3/BO5 series.
+        gw += m.t1 === i ? (Number(m.s1) || 0) : (Number(m.s2) || 0);
         // For display label: 3rd place match counts as SF level (round 3)
         const rLabel = (r===5) ? 3 : r;
         maxR = Math.max(maxR, rLabel);
@@ -1602,7 +1631,7 @@ function renderStandings() {
                  : maxR>=0  ? 'active'
                  : 'wait';
 
-    return {t, i, w, l, maxR, status};
+    return {t, i, w, l, gw, maxR, status};
   });
 
   // Sort: 1st Champion, 2nd Runner-up, 3rd 3rd-place, then active by round, then eliminated, then waiting
@@ -1632,6 +1661,7 @@ function renderStandings() {
       </div></td>
       <td style="color:var(--muted);font-size:11px">${rl}</td>
       <td style="color:var(--win)">${s.w}</td>
+      <td style="color:var(--win);font-weight:700">${s.gw}</td>
       <td style="color:var(--lose)">${s.l}</td>
       <td><span class="sb ${SCLS[s.status]}">${STXT[s.status]}</span></td>
     </tr>`;
@@ -2034,6 +2064,42 @@ async function dbDeleteTeam(teamId, affected) {
   }
 }
 
+async function dbDeleteAllTeams() {
+  setSyncState('syncing');
+
+  try {
+    // Lepaskan semua foreign-key references dari matches terlebih dahulu.
+    const { error: clearError } = await sb
+      .from('matches')
+      .update({
+        team1_id: null,
+        team2_id: null,
+        score1: null,
+        score2: null,
+        winner_id: null,
+        loser_id: null
+      })
+      .not('id', 'is', null);
+
+    if (clearError) throw clearError;
+
+    // Setelah semua reference aman, hapus seluruh Team Pool.
+    const { error: deleteError } = await sb
+      .from('teams')
+      .delete()
+      .not('id', 'is', null);
+
+    if (deleteError) throw deleteError;
+
+    setSyncState('synced');
+    return true;
+  } catch (e) {
+    console.error('Delete all teams error:', e);
+    setSyncState('err');
+    toast('Gagal hapus semua tim: ' + (e.message || 'unknown error'), 'err');
+    return false;
+  }
+}
 async function dbSaveMatch(r, i) {
   const m  = matches[r][i];
   const t1 = m.t1 !== null ? teams[m.t1] : null;
