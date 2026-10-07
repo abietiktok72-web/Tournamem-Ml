@@ -1821,7 +1821,12 @@ async function dbLoadTeams() {
 }
 
 async function dbLoadMatches() {
-  const { data, error } = await sb.from('matches').select('*').order('round').order('position');
+  const { data, error } = await sb
+    .from('matches')
+    .select('*')
+    .order('round')
+    .order('position');
+
   if (error) {
     console.error('Load matches error:', error);
     return false;
@@ -1829,6 +1834,7 @@ async function dbLoadMatches() {
   if (!data || data.length === 0) return true;
 
   // Rebuild local bracket from Supabase.
+  // Database enforces one row per (round, position).
   initMatches();
 
   data.forEach(row => {
@@ -2119,16 +2125,25 @@ async function dbSaveMatch(r, i) {
   };
 
   setSyncState('syncing');
-  let error;
-  if (m.dbId) {
-    ({ error } = await sb.from('matches').update(row).eq('id', m.dbId));
-  } else {
-    const { data, error: e } = await sb.from('matches').insert(row).select().single();
-    error = e;
-    if (!error && data) matches[r][i].dbId = data.id;
+
+  // Satu slot bracket = satu row DB.
+  // UNIQUE(round, position) + upsert mencegah duplicate match rows,
+  // termasuk saat data lama belum punya dbId di browser.
+  const { data, error } = await sb
+    .from('matches')
+    .upsert(row, { onConflict: 'round,position' })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Save match error:', error);
+    setSyncState('err');
+    toast('Gagal simpan match: '+error.message,'err');
+    return false;
   }
 
-  if (error) { setSyncState('err'); toast('Gagal simpan match: '+error.message,'err'); return false; }
+  if (data) matches[r][i].dbId = data.id;
+
   setSyncState('synced');
   return true;
 }
