@@ -588,6 +588,43 @@ body.view-mode .hbtns .btn-s{display:none}
   background:#e5e8ed;
 }
 
+
+.tab{position:relative;display:flex;align-items:center;gap:11px}
+.tab:before{content:"";width:17px;height:17px;flex:0 0 17px;border:1.5px solid #aeb5c0;border-radius:5px;opacity:.9}
+.tab[data-icon="bracket"]:before{border-radius:50%}
+.tab[data-icon="teams"]:before{border-radius:50%}
+.tab[data-icon="standings"]:before{border:0;border-radius:2px;background:linear-gradient(to top,transparent 0 25%,#aeb5c0 25% 34%,transparent 34% 55%,#aeb5c0 55% 64%,transparent 64%)}
+.tab.on:before{border-color:#111827}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #e7e9ee}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:1.8px;color:#9aa1ad;margin-bottom:6px}
+.page-title{font-size:26px;font-weight:750;letter-spacing:-.6px;color:#151922}
+.page-sub{margin-top:5px;font-size:12px;color:#8b93a1}
+.page-actions{display:flex;gap:8px;flex-wrap:wrap}
+.team-toolbar{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;margin-bottom:14px;background:#fff;border:1px solid #e5e8ed;border-radius:10px;color:#8b93a1;font-size:11px}
+.team-toolbar strong{color:#171a21;font-size:15px;margin-right:5px}
+.tgrid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.tecard{min-height:68px;padding:10px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(20,24,40,.035)}
+.upload-hint{font-size:8px!important;font-weight:800;color:#9aa1ad;letter-spacing:.4px}
+.standings-head{margin-bottom:14px}
+.standings-summary{display:flex;gap:8px}
+.standings-summary>div{min-width:74px;padding:8px 11px;background:#fff;border:1px solid #e5e8ed;border-radius:9px;text-align:center}
+.standings-summary strong{display:block;font-size:15px;color:#171a21}
+.standings-summary span{font-size:9px;color:#9aa1ad}
+.standings-card{background:#fff;border:1px solid #e3e6eb;border-radius:14px;overflow:hidden;box-shadow:0 3px 12px rgba(20,24,40,.035)}
+.standings-card table{border:0;border-radius:0}
+.standings-card th{height:44px;background:#fafbfc;font-size:9px;letter-spacing:1.3px}
+.standings-card td{height:58px;padding:10px 14px}
+.standings-card tr:last-child td{border-bottom:0}
+.team-avatar{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:0 0 30px;background:color-mix(in srgb,var(--team-color) 12%,#fff);color:var(--team-color);font-size:10px;font-weight:800;overflow:hidden}
+.team-avatar img{width:100%;height:100%;object-fit:contain}
+.standing-team{font-weight:700;color:#2a2f38}
+.rank-mark{display:inline-flex;width:22px;height:22px;border-radius:7px;align-items:center;justify-content:center;margin-left:6px;font-size:9px;font-weight:800}
+.rank-mark.p1{background:#fff4d8;color:#a87510}.rank-mark.p2{background:#eef1f5;color:#667085}.rank-mark.p3{background:#f8ede3;color:#9a612c}
+.empty-slot{cursor:pointer!important;justify-content:center!important;gap:6px!important;min-height:31px;border:1px dashed #d7dbe3;background:#fafbfc!important;transition:all .15s ease}
+.empty-slot:hover{background:#f3f5f7!important;border-color:#aeb5c0}
+.empty-slot-plus{width:18px;height:18px;border:1px solid #cbd0d8;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#8f97a3;font-size:15px;line-height:1}
+.empty-slot-label{font-size:10px!important;font-weight:650;color:#8b93a1!important}
+
 /* Responsive */
 @media (max-width:900px){
   .tabs{
@@ -678,9 +715,9 @@ body.view-mode .hbtns .btn-s{display:none}
 </header>
 
 <div class="tabs">
-  <button class="tab on"  onclick="showTab('bracket',this)">🏆 Bracket</button>
-  <button class="tab admin-only" onclick="showTab('teams',this)">✏️ Edit Tim</button>
-  <button class="tab"     onclick="showTab('standings',this)">📊 Standings</button>
+  <button class="tab on"  data-icon="bracket" onclick="showTab('bracket',this)">Bracket</button>
+  <button class="tab admin-only" data-icon="teams" onclick="showTab('teams',this)">Team Management</button>
+  <button class="tab"     data-icon="standings" onclick="showTab('standings',this)">Standings</button>
 </div>
 
 <div id="panel-bracket" class="panel on">
@@ -698,23 +735,14 @@ body.view-mode .hbtns .btn-s{display:none}
 
 <div id="panel-teams" class="panel">
   <div class="ewrap">
-    <div class="stitle">Edit Tim</div>
-    <div class="ibar"><div class="iitem"><div class="idot"></div>Ubah nama &amp; warna — bracket otomatis update</div></div>
+    <div class="page-head"><div><div class="eyebrow">TEAM MANAGEMENT</div><div class="page-title">Team Pool</div><div class="page-sub">Kelola nama, identitas, dan logo tim yang tersedia untuk bracket.</div></div><div class="page-actions"><button class="btn btn-p" onclick="openAddTeamModal()">Tambah Tim</button><button class="btn btn-s" onclick="clearBracketSetup()">Reset Bracket</button></div></div><div class="team-toolbar"><div><strong id="team-count">0</strong> tim tersedia</div><div>Perubahan tersimpan otomatis</div></div>
     <div class="tgrid" id="tgrid"></div>
-    <div style="display:flex;gap:9px;flex-wrap:wrap">
-      <button class="btn btn-p" onclick="openAddTeamModal()">＋ Tambah Tim</button>
-      <button class="btn btn-s" onclick="clearBracketSetup()">↺ Kosongkan Bracket</button>
-    </div>
-  </div>
-</div>
-
-<div id="panel-standings" class="panel">
+ class="panel">
   <div class="swrap">
-    <div class="stitle">Standings</div>
-    <table>
+    <div class="page-head standings-head"><div><div class="eyebrow">TOURNAMENT OVERVIEW</div><div class="page-title">Standings</div><div class="page-sub">Posisi, hasil pertandingan, dan progres setiap tim.</div></div><div class="standings-summary" id="standings-summary"></div></div><div class="standings-card"><table>
       <thead><tr><th>#</th><th>Tim</th><th>Babak</th><th>W</th><th>L</th><th>Status</th></tr></thead>
       <tbody id="stbody"></tbody>
-    </table>
+    </table></div>
   </div>
 </div>
 
@@ -1017,15 +1045,6 @@ function buildCard(m, r, i, isBronze) {
   const t1   = m.t1 !== null ? teams[m.t1] : null;
   const t2   = m.t2 !== null ? teams[m.t2] : null;
 
-  if (r === 0 && !t1 && !t2 && isAdmin) {
-    const empty = el('div','mc empty-add-card');
-    empty.innerHTML = '<div class="add-plus">＋</div><div class="add-label">Tambah Tim</div>';
-    empty.addEventListener('click', e => {
-      e.stopPropagation();
-      openAddTeamModal(0, i);
-    });
-    return empty;
-  }
   const w1   = m.win !== null && m.win === m.t1;
   const w2   = m.win !== null && m.win === m.t2;
   const done = m.s1 !== null;
@@ -1045,9 +1064,9 @@ function buildCard(m, r, i, isBronze) {
   lbl.textContent = isBronze ? 'M32 · 3RD PLACE' : `M${matchNum(r,i)}`;
   card.appendChild(lbl);
 
-  card.appendChild(slotEl(t1, m.s1, w1, w2, isBronze));
+  card.appendChild(slotEl(t1, m.s1, w1, w2, isBronze, r, i, 1));
   card.appendChild(divEl());
-  card.appendChild(slotEl(t2, m.s2, w2, w1, isBronze));
+  card.appendChild(slotEl(t2, m.s2, w2, w1, isBronze, r, i, 2));
   return card;
 }
 
@@ -1055,7 +1074,13 @@ function matchNum(r, i) {
   return [0,16,24,28,30,31][r] + i + 1;
 }
 
-function slotEl(team, score, isW, isL, isBronze) {
+function slotEl(team, score, isW, isL, isBronze, r=0, matchIndex=0, side=1) {
+  if (!team && r === 0 && isAdmin) {
+    const d = el('div','tslot empty-slot');
+    d.innerHTML = '<span class="empty-slot-plus">+</span><span class="empty-slot-label">Tambah Tim</span>';
+    d.addEventListener('click', e => { e.stopPropagation(); openAddTeamModal(r, matchIndex, side); });
+    return d;
+  }
   const color  = team ? team.color : '#475569';
   const name   = team ? h(team.name) : 'TBD';
   const sc     = score !== null ? score : '–';
@@ -1193,12 +1218,13 @@ function clearResult(r, i) {
 function renderTeamEditor() {
   const g = document.getElementById('tgrid');
   g.innerHTML = '';
+  const count=document.getElementById('team-count'); if(count) count.textContent=teams.length;
   teams.forEach((t,i) => {
     const c = el('div','tecard');
 
     const logoContent = t.logo
       ? `<img src="${t.logo}" alt="logo">`
-      : `<span class="upload-hint">🖼️</span>`;
+      : `<span class="upload-hint">LOGO</span>`;
 
     const removeBtn = t.logo
       ? `<button class="logo-remove" title="Hapus logo" onclick="event.stopPropagation();removeLogo(${i})">✕</button>`
@@ -1219,7 +1245,7 @@ function renderTeamEditor() {
         <input type="color" id="cp${i}" value="${t.color}" oninput="setColor(${i},this.value)">
       </div>
       <input class="ninp" type="text" value="${h(t.name)}"
-        oninput="setName(${i},this.value)" placeholder="Nama Tim">`;
+        oninput="setName(${i},this.value)" onblur="saveTeamField(${i})" placeholder="Nama Tim">`;
     g.appendChild(c);
   });
 }
@@ -1245,12 +1271,9 @@ function removeLogo(i) {
   renderBracket();
 }
 
-function setName(i,v){ teams[i].name=v||`Tim ${i+1}`; renderBracket(); renderStandings(); }
-function setColor(i,v){
-  teams[i].color=v;
-  const d=document.getElementById('cd'+i); if(d) d.style.background=v;
-  renderBracket();
-}
+async function setName(i,v){ teams[i].name=v||`Tim ${i+1}`; renderBracket(); renderStandings(); }
+async function saveTeamField(i){ const ok=await dbSaveTeams(); if(ok) toast('Perubahan tim tersimpan','ok'); }
+async function setColor(i,v){ teams[i].color=v; const d=document.getElementById('cd'+i); if(d) d.style.background=v; renderBracket(); renderStandings(); await saveTeamField(i); }
 
 function randomSeeds() {
   for(let i=teams.length-1;i>0;i--){
@@ -1272,6 +1295,7 @@ function resetNames() {
 // ══════════════════════════════════════════════
 let addTeamRound = 0;
 let addTeamPosition = 0;
+let addTeamSide = 1;
 
 function assignedTeamIndexes() {
   const set = new Set();
@@ -1297,14 +1321,14 @@ function refreshExistingTeamOptions() {
   });
 }
 
-function openAddTeamModal(r=0, i=null) {
+function openAddTeamModal(r=0, i=null, side=null) {
   if (!isAdmin) {
     toast('Login admin diperlukan untuk menambah tim','err');
     return;
   }
 
   if (i === null) {
-    i = matches[0].findIndex(m => m.t1 === null && m.t2 === null);
+    i = matches[0].findIndex(m => m.t1 === null || m.t2 === null);
     if (i < 0) {
       toast('Semua 32 slot ronde pertama sudah terisi','info');
       return;
@@ -1313,14 +1337,14 @@ function openAddTeamModal(r=0, i=null) {
 
   addTeamRound = r;
   addTeamPosition = i;
+  addTeamSide = side || (matches[r][i].t1 === null ? 1 : 2);
   refreshExistingTeamOptions();
 
   document.getElementById('existing-team-select').value = '';
   document.getElementById('new-team-name').value = '';
   document.getElementById('new-team-color').value = '#6366f1';
   document.getElementById('add-team-error').textContent = '';
-  document.getElementById('add-team-sub').textContent =
-    'Slot ' + (i+1) + ' · Round of 32 — pilih tim yang sudah ada atau buat baru.';
+  document.getElementById('add-team-sub').textContent = 'Match ' + matchNum(r,i) + ' · ' + (addTeamSide === 1 ? 'Team 1' : 'Team 2') + ' — pilih tim yang sudah ada atau buat baru.';
 
   document.getElementById('add-team-overlay').classList.add('on');
   document.getElementById('existing-team-select').focus();
@@ -1340,7 +1364,7 @@ async function confirmAddTeam() {
   const newColor = document.getElementById('new-team-color').value || '#6366f1';
   const m = matches[addTeamRound][addTeamPosition];
 
-  if (m.t1 !== null || m.t2 !== null) {
+  if ((addTeamSide === 1 && m.t1 !== null) || (addTeamSide === 2 && m.t2 !== null)) {
     err.textContent = 'Slot ini sudah terisi.';
     return;
   }
@@ -1383,8 +1407,8 @@ async function confirmAddTeam() {
     }
   }
 
-  m.t1 = teamIndex;
-  m.t2 = null;
+  if (addTeamSide === 1) m.t1 = teamIndex;
+  else m.t2 = teamIndex;
   m.s1 = null;
   m.s2 = null;
   m.win = null;
@@ -1478,22 +1502,21 @@ function renderStandings() {
   });
 
   const RSHORT = ['R32','R16','QF','SF','Final'];
-  const MEDAL  = {champ:'🥇',runner:'🥈','3rd':'🥉'};
+  const MEDAL  = {champ:'1',runner:'2','3rd':'3'};
   const PCLS   = {champ:'p1',runner:'p2','3rd':'p3'};
   const SCLS   = {champ:'sa',runner:'sa','3rd':'sa',active:'sa',elim:'se',wait:'sw'};
   const STXT   = {champ:'🥇 Champion',runner:'🥈 Runner Up','3rd':'🥉 Juara 3',
-                  active:'▶ Aktif',elim:'✕ Gugur',wait:'– Menunggu'};
+                  active:'Aktif',elim:'Gugur',wait:'Menunggu'};
 
   document.getElementById('stbody').innerHTML = stats.map((s,pos) => {
     const rl    = s.maxR>=0 ? RSHORT[s.maxR] : '–';
-    const medal = MEDAL[s.status]
-      ? `<span class="pb ${PCLS[s.status]}" style="margin-left:6px">${MEDAL[s.status]}</span>` : '';
+    const medal = MEDAL[s.status] ? `<span class="rank-mark ${PCLS[s.status]}">${MEDAL[s.status]}</span>` : '';
     const nb    = pos===0?'p1':pos===1?'p2':pos===2?'p3':'';
     return `<tr>
       <td><span class="pb ${nb}">${pos+1}</span></td>
       <td><div style="display:flex;align-items:center;gap:7px">
-        <div style="width:8px;height:8px;border-radius:50%;background:${s.t.color};flex-shrink:0"></div>
-        <span>${h(s.t.name)}</span>${medal}
+        <div class="team-avatar" style="--team-color:${s.t.color}">${s.t.logo ? `<img src="${s.t.logo}" alt="">` : h((s.t.name||"?").slice(0,1).toUpperCase())}</div>
+        <span class="standing-team">${h(s.t.name)}</span>${medal}
       </div></td>
       <td style="color:var(--muted);font-size:11px">${rl}</td>
       <td style="color:var(--win)">${s.w}</td>
