@@ -113,11 +113,6 @@ header{background:linear-gradient(135deg,#0a0c14,#111827,#0a0c14);border-bottom:
 .sbadge{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;color:var(--muted);
   min-width:24px;text-align:center;background:var(--surf2);padding:3px;
   border-radius:4px;border:1px solid var(--bdr)}
-.cwrap{position:relative}
-.cdot{width:22px;height:22px;border-radius:50%;border:2px solid var(--bdr);
-  cursor:pointer;flex-shrink:0;transition:border-color .15s}
-.cdot:hover{border-color:var(--acc)}
-input[type=color]{position:absolute;opacity:0;width:0;height:0}
 input[type=file]{display:none}
 .ninp{flex:1;background:var(--surf2);border:1px solid var(--bdr);border-radius:5px;
   padding:5px 8px;color:var(--txt);font-family:'Rajdhani',sans-serif;font-size:13px;
@@ -565,14 +560,6 @@ body.view-mode .hbtns .btn-s{display:none}
   letter-spacing:.6px;
 }
 .add-team-select{width:100%;appearance:auto}
-.add-team-color{
-  width:100%;
-  height:38px;
-  padding:4px;
-  border:1px solid #dfe3e9;
-  border-radius:8px;
-  background:#fff;
-}
 .add-team-divider{
   display:flex;
   align-items:center;
@@ -624,6 +611,14 @@ body.view-mode .hbtns .btn-s{display:none}
 .empty-slot:hover{background:#f3f5f7!important;border-color:#aeb5c0}
 .empty-slot-plus{width:18px;height:18px;border:1px solid #cbd0d8;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#8f97a3;font-size:15px;line-height:1}
 .empty-slot-label{font-size:10px!important;font-weight:650;color:#8b93a1!important}
+
+
+.tgrid:empty:after{content:"Belum ada tim. Tambahkan tim dari tombol di atas, lalu pasang tim ke slot bracket.";display:block;grid-column:1/-1;padding:34px 20px;text-align:center;color:#9aa1ad;border:1px dashed #d9dde4;border-radius:12px;background:#fafbfc;font-size:12px}
+.tecard{grid-template-columns:auto 42px 1fr!important}
+.tecard .sbadge{grid-column:1}
+.tecard .logo-upload{grid-column:2}
+.tecard .ninp{grid-column:3}
+.add-team-modal{max-width:430px}
 
 /* Responsive */
 @media (max-width:900px){
@@ -735,7 +730,7 @@ body.view-mode .hbtns .btn-s{display:none}
 
 <div id="panel-teams" class="panel">
   <div class="ewrap">
-    <div class="page-head"><div><div class="eyebrow">TEAM MANAGEMENT</div><div class="page-title">Team Pool</div><div class="page-sub">Kelola nama, identitas, dan logo tim yang tersedia untuk bracket.</div></div><div class="page-actions"><button class="btn btn-p" onclick="openAddTeamModal()">Tambah Tim</button><button class="btn btn-s" onclick="clearBracketSetup()">Reset Bracket</button></div></div><div class="team-toolbar"><div><strong id="team-count">0</strong> tim tersedia</div><div>Perubahan tersimpan otomatis</div></div>
+    <div class="page-head"><div><div class="eyebrow">TEAM MANAGEMENT</div><div class="page-title">Team Pool</div><div class="page-sub">Buat roster tim dan siapkan logo sebelum memasukkannya ke bracket.</div></div><div class="page-actions"><button class="btn btn-p" onclick="openTeamPoolModal()">Tambah Tim</button><button class="btn btn-s" onclick="clearBracketSetup()">Reset Bracket</button></div></div><div class="team-toolbar"><div><strong id="team-count">0</strong> tim tersedia</div><div>Perubahan tersimpan otomatis</div></div>
     <div class="tgrid" id="tgrid"></div>
   </div>
 </div>
@@ -780,19 +775,11 @@ body.view-mode .hbtns .btn-s{display:none}
         <option value="">— Pilih tim —</option>
       </select>
     </div>
-    <div class="add-team-divider"><span>atau buat tim baru</span></div>
-    <div class="add-team-section">
-      <label class="add-team-label">Nama tim baru</label>
-      <input class="sinp" type="text" id="new-team-name" maxlength="40" placeholder="Contoh: Tim Spinner 01">
-    </div>
-    <div class="add-team-section">
-      <label class="add-team-label">Warna tim</label>
-      <input class="add-team-color" type="color" id="new-team-color" value="#6366f1">
-    </div>
+    <div class="add-team-divider" id="add-team-manage-note"><span>Tambah tim baru dari Team Management</span></div>
     <div class="merr" id="add-team-error"></div>
     <div class="mbtns">
       <button class="btn btn-s" onclick="closeAddTeamModal()">Batal</button>
-      <button class="btn btn-p" onclick="confirmAddTeam()">＋ Pasang Tim</button>
+      <button class="btn btn-p" onclick="confirmAddTeam()">Pasang Tim</button>
     </div>
   </div>
 </div>
@@ -844,7 +831,7 @@ const DEF_COLORS = [
 // ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
-let teams = DEF_NAMES.map((name,i)=>({name,color:DEF_COLORS[i],seed:i+1,logo:null}));
+let teams = [];
 
 /*
   matches[0..4][i] = main bracket (R32→Final)
@@ -1084,7 +1071,7 @@ function slotEl(team, score, isW, isL, isBronze, r=0, matchIndex=0, side=1) {
     d.addEventListener('click', e => { e.stopPropagation(); openAddTeamModal(r, matchIndex, side); });
     return d;
   }
-  const color  = team ? team.color : '#475569';
+  const color  = team ? (team.color || '#64748b') : '#475569';
   const name   = team ? h(team.name) : 'TBD';
   const sc     = score !== null ? score : '–';
   const winCls = isBronze ? 'wbr' : 'w';
@@ -1242,11 +1229,6 @@ function renderTeamEditor() {
         ${removeBtn}
         <input type="file" id="lf${i}" accept="image/*" onchange="uploadLogo(${i},this)">
       </div>
-      <div class="cwrap">
-        <div class="cdot" id="cd${i}" style="background:${t.color}"
-          onclick="document.getElementById('cp${i}').click()" title="Warna tim"></div>
-        <input type="color" id="cp${i}" value="${t.color}" oninput="setColor(${i},this.value)">
-      </div>
       <input class="ninp" type="text" value="${h(t.name)}"
         oninput="setName(${i},this.value)" onblur="saveTeamField(${i})" placeholder="Nama Tim">`;
     g.appendChild(c);
@@ -1264,6 +1246,7 @@ function uploadLogo(i, input) {
     teams[i].logo = e.target.result;
     renderTeamEditor();
     renderBracket();
+    dbSaveTeams();
   };
   reader.readAsDataURL(file);
 }
@@ -1277,22 +1260,8 @@ function removeLogo(i) {
 
 async function setName(i,v){ teams[i].name=v||`Tim ${i+1}`; renderBracket(); renderStandings(); }
 async function saveTeamField(i){ const ok=await dbSaveTeams(); if(ok) toast('Perubahan tim tersimpan','ok'); }
-async function setColor(i,v){ teams[i].color=v; const d=document.getElementById('cd'+i); if(d) d.style.background=v; renderBracket(); renderStandings(); await saveTeamField(i); }
 
-function randomSeeds() {
-  for(let i=teams.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    [teams[i],teams[j]]=[teams[j],teams[i]];
-  }
-  teams.forEach((t,i)=>t.seed=i+1);
-  initMatches(); renderBracket(); renderTeamEditor(); renderStandings();
-}
 
-function resetNames() {
-  if(!confirm('Reset semua nama, warna & logo ke default?')) return;
-  teams=DEF_NAMES.map((name,i)=>({name,color:DEF_COLORS[i],seed:i+1,logo:null}));
-  initMatches(); renderBracket(); renderTeamEditor(); renderStandings();
-}
 
 // ══════════════════════════════════════════════
 // MANUAL TEAM DRAW / BRACKET SETUP
@@ -1300,6 +1269,7 @@ function resetNames() {
 let addTeamRound = 0;
 let addTeamPosition = 0;
 let addTeamSide = 1;
+let addTeamPoolMode = false;
 
 function assignedTeamIndexes() {
   const set = new Set();
@@ -1325,11 +1295,29 @@ function refreshExistingTeamOptions() {
   });
 }
 
+function openTeamPoolModal() {
+  if (!isAdmin) {
+    toast('Login admin diperlukan untuk menambah tim','err');
+    return;
+  }
+  addTeamPoolMode = true;
+  document.getElementById('existing-team-select').closest('.add-team-section').style.display = 'none';
+  document.getElementById('add-team-manage-note').style.display = 'none';
+  document.getElementById('add-team-sub').textContent = 'Buat tim baru yang nanti bisa dipilih dari setiap slot bracket.';
+  document.getElementById('new-team-name').value = '';
+  document.getElementById('add-team-error').textContent = '';
+  document.getElementById('add-team-overlay').classList.add('on');
+  document.getElementById('new-team-name').focus();
+}
+
 function openAddTeamModal(r=0, i=null, side=null) {
   if (!isAdmin) {
     toast('Login admin diperlukan untuk menambah tim','err');
     return;
   }
+  addTeamPoolMode = false;
+  document.getElementById('existing-team-select').closest('.add-team-section').style.display = '';
+  document.getElementById('add-team-manage-note').style.display = '';
 
   if (i === null) {
     i = matches[0].findIndex(m => m.t1 === null || m.t2 === null);
@@ -1346,7 +1334,6 @@ function openAddTeamModal(r=0, i=null, side=null) {
 
   document.getElementById('existing-team-select').value = '';
   document.getElementById('new-team-name').value = '';
-  document.getElementById('new-team-color').value = '#6366f1';
   document.getElementById('add-team-error').textContent = '';
   document.getElementById('add-team-sub').textContent = 'Match ' + matchNum(r,i) + ' · ' + (addTeamSide === 1 ? 'Team 1' : 'Team 2') + ' — pilih tim yang sudah ada atau buat baru.';
 
@@ -1355,6 +1342,9 @@ function openAddTeamModal(r=0, i=null, side=null) {
 }
 
 function closeAddTeamModal() {
+  addTeamPoolMode = false;
+  document.getElementById('existing-team-select').closest('.add-team-section').style.display = '';
+  document.getElementById('add-team-manage-note').style.display = '';
   document.getElementById('add-team-overlay').classList.remove('on');
   document.getElementById('add-team-error').textContent = '';
 }
@@ -1365,7 +1355,28 @@ async function confirmAddTeam() {
   const err = document.getElementById('add-team-error');
   const existing = document.getElementById('existing-team-select').value;
   const newName = document.getElementById('new-team-name').value.trim();
-  const newColor = document.getElementById('new-team-color').value || '#6366f1';
+
+  if (addTeamPoolMode) {
+    if (!newName) {
+      err.textContent = 'Masukkan nama tim.';
+      document.getElementById('new-team-name').focus();
+      return;
+    }
+    if (teams.some(t => (t.name || '').trim().toLowerCase() === newName.toLowerCase())) {
+      err.textContent = 'Nama tim itu sudah ada.';
+      return;
+    }
+    teams.push({name:newName, seed:teams.length+1, logo:null, color:'#64748b'});
+    const saved = await dbSaveTeams();
+    if (!saved) { teams.pop(); return; }
+    closeAddTeamModal();
+    renderTeamEditor();
+    renderBracket();
+    renderStandings();
+    toast(newName + ' ditambahkan ke Team Pool', 'ok');
+    return;
+  }
+
   const m = matches[addTeamRound][addTeamPosition];
 
   if ((addTeamSide === 1 && m.t1 !== null) || (addTeamSide === 2 && m.t2 !== null)) {
@@ -1382,33 +1393,8 @@ async function confirmAddTeam() {
       return;
     }
   } else {
-    if (!newName) {
-      err.textContent = 'Masukkan nama tim baru.';
-      document.getElementById('new-team-name').focus();
-      return;
-    }
-
-    const duplicate = teams.some(t =>
-      (t.name || '').trim().toLowerCase() === newName.toLowerCase()
-    );
-    if (duplicate) {
-      err.textContent = 'Nama tim itu sudah ada.';
-      return;
-    }
-
-    teams.push({
-      name: newName,
-      color: newColor,
-      seed: teams.length + 1,
-      logo: null
-    });
-    teamIndex = teams.length - 1;
-
-    const savedTeams = await dbSaveTeams();
-    if (!savedTeams) {
-      teams.pop();
-      return;
-    }
+    err.textContent = 'Pilih tim dari Team Management terlebih dahulu.';
+    return;
   }
 
   if (addTeamSide === 1) m.t1 = teamIndex;
@@ -1519,7 +1505,7 @@ function renderStandings() {
     return `<tr>
       <td><span class="pb ${nb}">${pos+1}</span></td>
       <td><div style="display:flex;align-items:center;gap:7px">
-        <div class="team-avatar" style="--team-color:${s.t.color}">${s.t.logo ? `<img src="${s.t.logo}" alt="">` : h((s.t.name||"?").slice(0,1).toUpperCase())}</div>
+        <div class="team-avatar" style="--team-color:${s.t.color || '#64748b'}">${s.t.logo ? `<img src="${s.t.logo}" alt="">` : h((s.t.name||"?").slice(0,1).toUpperCase())}</div>
         <span class="standing-team">${h(s.t.name)}</span>${medal}
       </div></td>
       <td style="color:var(--muted);font-size:11px">${rl}</td>
@@ -1593,7 +1579,6 @@ async function exportData() {
     const teamRows = teams.slice().sort((a,b) => a.seed - b.seed).map(t => ({
       'Seed': t.seed,
       'Tim': t.name,
-      'Warna': t.color,
       'Logo': t.logo || ''
     }));
 
@@ -1691,7 +1676,7 @@ async function dbSaveTeams() {
   if (toUpdate.length > 0) {
     for (const t of toUpdate) {
       const { error } = await sb.from('teams').update({
-        name: t.name, color: t.color, seed: t.seed, logo_url: t.logo || null
+        name: t.name, seed: t.seed, logo_url: t.logo || null
       }).eq('id', t.id);
       if (error) { setSyncState('err'); toast('Gagal simpan tim: '+error.message,'err'); return false; }
     }
@@ -1710,54 +1695,6 @@ async function dbSaveTeams() {
   }
 
   setSyncState('synced');
-  return true;
-}
-
-async function dbSeedTeams() {
-  setSyncState('syncing');
-  const rows = DEF_NAMES.map((name,i) => ({
-    name, color: DEF_COLORS[i], seed: i+1, logo_url: null
-    // no id field — let database auto-generate
-  }));
-  const { data, error } = await sb.from('teams').insert(rows).select();
-  if (error) { setSyncState('err'); toast('Gagal init tim: '+error.message,'err'); return false; }
-  teams = data.map(row => ({ id:row.id, name:row.name, color:row.color, seed:row.seed, logo:null }));
-  setSyncState('synced');
-  return true;
-}
-
-// ══════════════════════════════════════════════
-// DB — MATCHES
-// ══════════════════════════════════════════════
-async function dbLoadMatches() {
-  const { data, error } = await sb.from('matches').select('*').order('round').order('position');
-  if (error) { console.error(error); return false; }
-  if (!data || data.length === 0) return false;
-
-  // Rebuild matches array from DB
-  initMatches(); // reset structure first
-
-  data.forEach(row => {
-    const r = row.round;
-    const i = row.position;
-    if (r > 5 || !matches[r] || !matches[r][i]) return;
-
-    // Convert DB team IDs back to local team indices
-    const t1idx  = row.team1_id  !== null ? teams.findIndex(t=>t.id===row.team1_id)  : null;
-    const t2idx  = row.team2_id  !== null ? teams.findIndex(t=>t.id===row.team2_id)  : null;
-    const winIdx = row.winner_id !== null ? teams.findIndex(t=>t.id===row.winner_id) : null;
-    const loseIdx= row.loser_id  !== null ? teams.findIndex(t=>t.id===row.loser_id)  : null;
-
-    matches[r][i] = {
-      dbId: row.id,
-      t1:   t1idx   >= 0 ? t1idx   : null,
-      t2:   t2idx   >= 0 ? t2idx   : null,
-      s1:   row.score1 !== null ? row.score1 : null,
-      s2:   row.score2 !== null ? row.score2 : null,
-      win:  winIdx  >= 0 ? winIdx  : null,
-      lose: loseIdx >= 0 ? loseIdx : null,
-    };
-  });
   return true;
 }
 
