@@ -1804,26 +1804,56 @@ async function dbDeleteTeam(teamId, affected) {
   setSyncState('syncing');
 
   try {
-    for (const item of affected) {
-      if (!item.dbId) continue;
-
-      const { error } = await sb.from('matches')
-        .update({
-          team1_id: null,
-          team2_id: null,
-          score1: null,
-          score2: null,
-          winner_id: null,
-          loser_id: null
-        })
-        .eq('id', item.dbId);
-
-      if (error) throw error;
-    }
-
     if (teamId) {
-      const { error } = await sb.from('teams').delete().eq('id', teamId);
-      if (error) throw error;
+      // Jangan bergantung pada state bracket browser.
+      // Cari langsung semua match di database yang masih mereferensikan tim ini.
+      const refFilter = [
+        'team1_id.eq.' + teamId,
+        'team2_id.eq.' + teamId,
+        'winner_id.eq.' + teamId,
+        'loser_id.eq.' + teamId
+      ].join(',');
+
+      const { data: refs, error: findError } = await sb
+        .from('matches')
+        .select('id')
+        .or(refFilter);
+
+      if (findError) throw findError;
+
+      if (refs && refs.length > 0) {
+        const { error: clearError } = await sb
+          .from('matches')
+          .update({
+            team1_id: null,
+            team2_id: null,
+            score1: null,
+            score2: null,
+            winner_id: null,
+            loser_id: null
+          })
+          .or(refFilter);
+
+        if (clearError) throw clearError;
+      }
+
+      // Pastikan tidak ada foreign-key reference yang tertinggal.
+      const { data: remaining, error: verifyError } = await sb
+        .from('matches')
+        .select('id')
+        .or(refFilter);
+
+      if (verifyError) throw verifyError;
+      if (remaining && remaining.length > 0) {
+        throw new Error('Masih ada match yang mereferensikan tim ini.');
+      }
+
+      const { error: deleteError } = await sb
+        .from('teams')
+        .delete()
+        .eq('id', teamId);
+
+      if (deleteError) throw deleteError;
     }
 
     setSyncState('synced');
