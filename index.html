@@ -776,6 +776,10 @@ body.view-mode .hbtns .btn-s{display:none}
       </select>
     </div>
     <div class="add-team-divider" id="add-team-manage-note"><span>Tambah tim baru dari Team Management</span></div>
+    <div class="add-team-section" id="new-team-section">
+      <label class="add-team-label">Nama tim</label>
+      <input class="sinp" type="text" id="new-team-name" maxlength="40" placeholder="Contoh: Tim Spinner 01">
+    </div>
     <div class="merr" id="add-team-error"></div>
     <div class="mbtns">
       <button class="btn btn-s" onclick="closeAddTeamModal()">Batal</button>
@@ -1303,6 +1307,7 @@ function openTeamPoolModal() {
   addTeamPoolMode = true;
   document.getElementById('existing-team-select').closest('.add-team-section').style.display = 'none';
   document.getElementById('add-team-manage-note').style.display = 'none';
+  document.getElementById('new-team-section').style.display = '';
   document.getElementById('add-team-sub').textContent = 'Buat tim baru yang nanti bisa dipilih dari setiap slot bracket.';
   document.getElementById('new-team-name').value = '';
   document.getElementById('add-team-error').textContent = '';
@@ -1318,6 +1323,7 @@ function openAddTeamModal(r=0, i=null, side=null) {
   addTeamPoolMode = false;
   document.getElementById('existing-team-select').closest('.add-team-section').style.display = '';
   document.getElementById('add-team-manage-note').style.display = '';
+  document.getElementById('new-team-section').style.display = 'none';
 
   if (i === null) {
     i = matches[0].findIndex(m => m.t1 === null || m.t2 === null);
