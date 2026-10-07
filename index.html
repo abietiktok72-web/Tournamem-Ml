@@ -1023,7 +1023,7 @@ function renderBracket() {
   cc.style.cssText = `left:${cx}px;top:${cy}px`;
   const champLogoHTML = champ && champ.logo
     ? `<img src="${champ.logo}" style="width:40px;height:40px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
-    : `<div class="pc-crown">🏆</div>`;
+    : `<div class="pc-crown">1</div>`;
   cc.innerHTML = `${champLogoHTML}<div class="pc-lbl">Champion</div>
     <div class="pc-name">${champ ? h(champ.name) : '???'}</div>`;
   canvas.appendChild(cc);
@@ -1035,7 +1035,7 @@ function renderBracket() {
   bc.style.cssText = `left:${bx}px;top:${by}px`;
   const thirdLogoHTML = third && third.logo
     ? `<img src="${third.logo}" style="width:36px;height:36px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
-    : `<div class="pc-crown">🥉</div>`;
+    : `<div class="pc-crown">3</div>`;
   bc.innerHTML = `${thirdLogoHTML}<div class="pc-lbl">Juara 3</div>
     <div class="pc-name">${third ? h(third.name) : '???'}</div>`;
   canvas.appendChild(bc);
@@ -1272,6 +1272,7 @@ function removeLogo(i) {
   teams[i].logo = null;
   renderTeamEditor();
   renderBracket();
+  dbSaveTeams();
 }
 
 async function setName(i,v){ teams[i].name=v||`Tim ${i+1}`; renderBracket(); renderStandings(); }
@@ -1508,7 +1509,7 @@ function renderStandings() {
   const MEDAL  = {champ:'1',runner:'2','3rd':'3'};
   const PCLS   = {champ:'p1',runner:'p2','3rd':'p3'};
   const SCLS   = {champ:'sa',runner:'sa','3rd':'sa',active:'sa',elim:'se',wait:'sw'};
-  const STXT   = {champ:'🥇 Champion',runner:'🥈 Runner Up','3rd':'🥉 Juara 3',
+  const STXT   = {champ:'Champion',runner:'Runner Up','3rd':'Juara 3',
                   active:'Aktif',elim:'Gugur',wait:'Menunggu'};
 
   document.getElementById('stbody').innerHTML = stats.map((s,pos) => {
