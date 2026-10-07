@@ -526,6 +526,68 @@ tr:hover td{background:#fafbfc}
 /* Viewer mode: keep public experience clean */
 body.view-mode .hbtns .btn-s{display:none}
 
+/* MANUAL BRACKET ADD */
+.empty-add-card{
+  cursor:pointer;
+  border-style:dashed;
+  border-color:#d7dbe3;
+  background:rgba(255,255,255,.78);
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  transition:all .16s ease;
+}
+.empty-add-card:hover{
+  border-color:#aeb5c1;
+  background:#fff;
+  transform:translateY(-1px);
+}
+.add-plus{
+  font-size:20px;
+  line-height:1;
+  color:#9aa1ad;
+  margin-bottom:3px;
+}
+.add-label{
+  font-size:10px;
+  font-weight:700;
+  color:#8b93a1;
+}
+.add-team-modal{max-width:390px}
+.add-team-section{margin-top:12px}
+.add-team-label{
+  display:block;
+  margin-bottom:6px;
+  color:#7f8794;
+  font-size:10px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.6px;
+}
+.add-team-select{width:100%;appearance:auto}
+.add-team-color{
+  width:100%;
+  height:38px;
+  padding:4px;
+  border:1px solid #dfe3e9;
+  border-radius:8px;
+  background:#fff;
+}
+.add-team-divider{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:17px 0 4px;
+  color:#a0a6b1;
+  font-size:10px;
+}
+.add-team-divider:before,.add-team-divider:after{
+  content:"";
+  height:1px;
+  flex:1;
+  background:#e5e8ed;
+}
+
 /* Responsive */
 @media (max-width:900px){
   .tabs{
@@ -628,7 +690,7 @@ body.view-mode .hbtns .btn-s{display:none}
       <div class="iitem"><div class="idot v"></div>Semifinal = Best of 5</div>
       <div class="iitem"><div class="idot g"></div>Final = Best of 5</div>
       <div class="iitem"><div class="idot b"></div>Perebutan Juara 3 = Best of 5</div>
-      <div class="iitem"><div class="idot" style="background:var(--acc2)"></div>Klik kartu untuk input skor · Hover untuk hapus</div>
+      <div class="iitem"><div class="idot" style="background:var(--acc2)"></div>Admin: klik + Tambah Tim untuk isi bracket · klik kartu untuk skor</div>
     </div>
     <div class="bcanvas" id="bcanvas"></div>
   </div>
@@ -640,8 +702,8 @@ body.view-mode .hbtns .btn-s{display:none}
     <div class="ibar"><div class="iitem"><div class="idot"></div>Ubah nama &amp; warna — bracket otomatis update</div></div>
     <div class="tgrid" id="tgrid"></div>
     <div style="display:flex;gap:9px;flex-wrap:wrap">
-      <button class="btn btn-s" onclick="randomSeeds()">🎲 Acak Seeding</button>
-      <button class="btn btn-s" onclick="resetNames()">↺ Reset Default</button>
+      <button class="btn btn-p" onclick="openAddTeamModal()">＋ Tambah Tim</button>
+      <button class="btn btn-s" onclick="clearBracketSetup()">↺ Kosongkan Bracket</button>
     </div>
   </div>
 </div>
@@ -673,6 +735,33 @@ body.view-mode .hbtns .btn-s{display:none}
     <div class="mbtns">
       <button class="btn btn-s" onclick="closeModal()">Batal</button>
       <button class="btn btn-p" onclick="submitScore()">✓ Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="add-team-overlay">
+  <div class="modal add-team-modal">
+    <h3>ATUR TIM DI BRACKET</h3>
+    <div class="msub" id="add-team-sub">Pilih tim untuk slot ini.</div>
+    <div class="add-team-section">
+      <label class="add-team-label">Tim yang sudah ada</label>
+      <select class="sinp add-team-select" id="existing-team-select">
+        <option value="">— Pilih tim —</option>
+      </select>
+    </div>
+    <div class="add-team-divider"><span>atau buat tim baru</span></div>
+    <div class="add-team-section">
+      <label class="add-team-label">Nama tim baru</label>
+      <input class="sinp" type="text" id="new-team-name" maxlength="40" placeholder="Contoh: Tim Spinner 01">
+    </div>
+    <div class="add-team-section">
+      <label class="add-team-label">Warna tim</label>
+      <input class="add-team-color" type="color" id="new-team-color" value="#6366f1">
+    </div>
+    <div class="merr" id="add-team-error"></div>
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeAddTeamModal()">Batal</button>
+      <button class="btn btn-p" onclick="confirmAddTeam()">＋ Pasang Tim</button>
     </div>
   </div>
 </div>
@@ -745,26 +834,19 @@ let activeR = null, activeI = null;
 function initMatches() {
   matches = [];
 
-  // Round 0: 16 seeded matches
-  const r0 = [];
-  for (let i = 0; i < 16; i++) {
-    const s1 = BRACKET_SEEDS[i*2];
-    const s2 = BRACKET_SEEDS[i*2+1];
-    r0.push({ t1: seedIdx(s1), t2: seedIdx(s2), s1:null, s2:null, win:null, lose:null });
-  }
-  matches.push(r0);
+  // Round 0 is intentionally empty. Admin places teams manually.
+  matches.push(Array.from({length:16}, ()=>({
+    t1:null,t2:null,s1:null,s2:null,win:null,lose:null
+  })));
 
-  // Rounds 1-4: empty
   [8, 4, 2, 1].forEach(n => {
-    matches.push(Array.from({length:n}, ()=>({t1:null,t2:null,s1:null,s2:null,win:null,lose:null})));
+    matches.push(Array.from({length:n}, ()=>({
+      t1:null,t2:null,s1:null,s2:null,win:null,lose:null
+    })));
   });
 
-  // Round 5: 3rd place (1 match, losers of SF = matches[3][0] and matches[3][1])
-  matches.push([{t1:null, t2:null, s1:null, s2:null, win:null, lose:null}]);
-}
-
-function seedIdx(seed) {
-  return teams.findIndex(t => t.seed === seed);
+  // 3rd place: losers of both semifinal matches
+  matches.push([{t1:null,t2:null,s1:null,s2:null,win:null,lose:null}]);
 }
 
 // ══════════════════════════════════════════════
@@ -934,6 +1016,16 @@ function renderBracket() {
 function buildCard(m, r, i, isBronze) {
   const t1   = m.t1 !== null ? teams[m.t1] : null;
   const t2   = m.t2 !== null ? teams[m.t2] : null;
+
+  if (r === 0 && !t1 && !t2 && isAdmin) {
+    const empty = el('div','mc empty-add-card');
+    empty.innerHTML = '<div class="add-plus">＋</div><div class="add-label">Tambah Tim</div>';
+    empty.addEventListener('click', e => {
+      e.stopPropagation();
+      openAddTeamModal(0, i);
+    });
+    return empty;
+  }
   const w1   = m.win !== null && m.win === m.t1;
   const w2   = m.win !== null && m.win === m.t2;
   const done = m.s1 !== null;
@@ -1176,6 +1268,165 @@ function resetNames() {
 }
 
 // ══════════════════════════════════════════════
+// MANUAL TEAM DRAW / BRACKET SETUP
+// ══════════════════════════════════════════════
+let addTeamRound = 0;
+let addTeamPosition = 0;
+
+function assignedTeamIndexes() {
+  const set = new Set();
+  matches.forEach(round => round.forEach(m => {
+    if (m.t1 !== null) set.add(m.t1);
+    if (m.t2 !== null) set.add(m.t2);
+  }));
+  return set;
+}
+
+function refreshExistingTeamOptions() {
+  const sel = document.getElementById('existing-team-select');
+  if (!sel) return;
+  const used = assignedTeamIndexes();
+  sel.innerHTML = '<option value="">— Pilih tim —</option>';
+
+  teams.forEach((t,i) => {
+    if (used.has(i)) return;
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = t.name || ('Tim ' + (i+1));
+    sel.appendChild(opt);
+  });
+}
+
+function openAddTeamModal(r=0, i=null) {
+  if (!isAdmin) {
+    toast('Login admin diperlukan untuk menambah tim','err');
+    return;
+  }
+
+  if (i === null) {
+    i = matches[0].findIndex(m => m.t1 === null && m.t2 === null);
+    if (i < 0) {
+      toast('Semua 32 slot ronde pertama sudah terisi','info');
+      return;
+    }
+  }
+
+  addTeamRound = r;
+  addTeamPosition = i;
+  refreshExistingTeamOptions();
+
+  document.getElementById('existing-team-select').value = '';
+  document.getElementById('new-team-name').value = '';
+  document.getElementById('new-team-color').value = '#6366f1';
+  document.getElementById('add-team-error').textContent = '';
+  document.getElementById('add-team-sub').textContent =
+    'Slot ' + (i+1) + ' · Round of 32 — pilih tim yang sudah ada atau buat baru.';
+
+  document.getElementById('add-team-overlay').classList.add('on');
+  document.getElementById('existing-team-select').focus();
+}
+
+function closeAddTeamModal() {
+  document.getElementById('add-team-overlay').classList.remove('on');
+  document.getElementById('add-team-error').textContent = '';
+}
+
+async function confirmAddTeam() {
+  if (!isAdmin) return;
+
+  const err = document.getElementById('add-team-error');
+  const existing = document.getElementById('existing-team-select').value;
+  const newName = document.getElementById('new-team-name').value.trim();
+  const newColor = document.getElementById('new-team-color').value || '#6366f1';
+  const m = matches[addTeamRound][addTeamPosition];
+
+  if (m.t1 !== null || m.t2 !== null) {
+    err.textContent = 'Slot ini sudah terisi.';
+    return;
+  }
+
+  let teamIndex = null;
+
+  if (existing !== '') {
+    teamIndex = Number(existing);
+    if (!Number.isInteger(teamIndex) || !teams[teamIndex]) {
+      err.textContent = 'Tim yang dipilih tidak valid.';
+      return;
+    }
+  } else {
+    if (!newName) {
+      err.textContent = 'Masukkan nama tim baru.';
+      document.getElementById('new-team-name').focus();
+      return;
+    }
+
+    const duplicate = teams.some(t =>
+      (t.name || '').trim().toLowerCase() === newName.toLowerCase()
+    );
+    if (duplicate) {
+      err.textContent = 'Nama tim itu sudah ada.';
+      return;
+    }
+
+    teams.push({
+      name: newName,
+      color: newColor,
+      seed: teams.length + 1,
+      logo: null
+    });
+    teamIndex = teams.length - 1;
+
+    const savedTeams = await dbSaveTeams();
+    if (!savedTeams) {
+      teams.pop();
+      return;
+    }
+  }
+
+  m.t1 = teamIndex;
+  m.t2 = null;
+  m.s1 = null;
+  m.s2 = null;
+  m.win = null;
+  m.lose = null;
+
+  closeAddTeamModal();
+  renderBracket();
+  renderTeamEditor();
+  renderStandings();
+
+  const saved = await dbSaveMatch(addTeamRound, addTeamPosition);
+  if (saved) {
+    toast(teams[teamIndex].name + ' ditambahkan ke bracket ✓', 'ok');
+  }
+}
+
+async function clearBracketSetup() {
+  if (!isAdmin) {
+    toast('Login admin diperlukan untuk mengosongkan bracket','err');
+    return;
+  }
+
+  if (!confirm('Kosongkan semua slot bracket dan hasil pertandingan? Data tim tetap disimpan.')) return;
+
+  initMatches();
+  renderBracket();
+  renderStandings();
+
+  let ok = true;
+  for (let r=0; r<matches.length; r++) {
+    for (let i=0; i<matches[r].length; i++) {
+      if (!(await dbSaveMatch(r,i))) ok = false;
+    }
+  }
+
+  toast(
+    ok ? 'Bracket dikosongkan ✓' : 'Bracket lokal dikosongkan, tapi ada data yang gagal disimpan',
+    ok ? 'ok' : 'err'
+  );
+}
+
+// ══════════════════════════════════════════════
 // STANDINGS
 // ══════════════════════════════════════════════
 function renderStandings() {
@@ -1347,6 +1598,7 @@ async function exportData() {
 }
 
 document.getElementById('overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+document.getElementById('add-team-overlay').addEventListener('click',function(e){if(e.target===this)closeAddTeamModal();});
 document.addEventListener('keydown',e=>{
   if(activeR===null) return;
   if(e.key==='Enter') submitScore();
@@ -1390,7 +1642,7 @@ function hideLoading() {
 async function dbLoadTeams() {
   const { data, error } = await sb.from('teams').select('*').order('seed');
   if (error) { console.error(error); return false; }
-  if (data && data.length === 32) {
+  if (data && data.length > 0) {
     teams = data.map(row => ({
       id:    row.id,
       name:  row.name,
@@ -1657,26 +1909,13 @@ function setColor(i, v) {
 // ══════════════════════════════════════════════
 // OVERRIDE randomSeeds & resetNames
 // ══════════════════════════════════════════════
+// Random seeding is intentionally removed.
 async function randomSeeds() {
-  for(let i=teams.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    [teams[i],teams[j]]=[teams[j],teams[i]];
-  }
-  teams.forEach((t,i)=>t.seed=i+1);
-  initMatches();
-  renderBracket(); renderTeamEditor(); renderStandings();
-  await dbSaveTeams();
-  toast('Seeding diacak & tersimpan ✓','ok');
+  toast('Acak seeding sudah dinonaktifkan. Tambahkan tim manual lewat + Tambah Tim.','info');
 }
 
 async function resetNames() {
-  if(!confirm('Reset semua nama, warna & logo ke default?')) return;
-  // Keep IDs, reset other fields
-  teams.forEach((t,i)=>{ t.name=DEF_NAMES[i]; t.color=DEF_COLORS[i]; t.seed=i+1; t.logo=null; });
-  initMatches();
-  renderBracket(); renderTeamEditor(); renderStandings();
-  await dbSaveTeams();
-  toast('Data direset ✓','ok');
+  await clearBracketSetup();
 }
 
 // ══════════════════════════════════════════════
