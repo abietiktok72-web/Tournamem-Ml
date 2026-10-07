@@ -235,6 +235,8 @@ body.view-mode .hbtns .btn-s{display:none}
 .sync-dot.err{background:var(--lose)}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 </style>
+<!-- Excel export (SheetJS) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- Supabase SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -277,7 +279,7 @@ body.view-mode .hbtns .btn-s{display:none}
       <span class="sync-dot" id="sync-dot"></span><span id="sync-txt">–</span>
     </span>
     <button class="btn btn-s" onclick="resetAll()">↺ Reset</button>
-    <button class="btn btn-p" onclick="exportData()">↓ Export</button>
+    <button class="btn btn-p" onclick="exportData()">↓ Export Excel</button>
   </div>
 </header>
 
@@ -947,23 +949,70 @@ function resetAll() {
   initMatches(); renderBracket(); renderStandings();
 }
 
-function exportData() {
-  const results = [];
-  for(let r=0;r<=5;r++){
-    matches[r].forEach((m,i)=>{
-      if(m.s1===null) return;
-      results.push({
-        round: r===5?'3rd Place Match':RNAMES[r],
-        match: r===5?'M32':'M'+(matchNum(r,i)),
-        team1: m.t1!==null?teams[m.t1].name:'TBD',
-        team2: m.t2!==null?teams[m.t2].name:'TBD',
-        score: `${m.s1}-${m.s2}`,
-        winner: m.win!==null?teams[m.win].name:null
+async function exportData() {
+  try {
+    if (typeof XLSX === 'undefined') {
+      toast('Library Excel belum siap. Coba lagi.', 'err');
+      return;
+    }
+
+    setSyncState('syncing');
+    await dbLoadTeams();
+    initMatches();
+    await dbLoadMatches();
+    propagate();
+
+    const exportedAt = new Date();
+    const results = [];
+    for (let r = 0; r <= 5; r++) {
+      matches[r].forEach((m, i) => {
+        if (m.s1 === null && m.s2 === null) return;
+        results.push({
+          'Babak': r === 5 ? 'Perebutan Juara 3' : RNAMES[r],
+          'Format': r === 5 ? 'Best of 5' : RFMTS[r],
+          'Match': r === 5 ? 'M32' : 'M' + matchNum(r, i),
+          'Tim 1': m.t1 !== null ? teams[m.t1].name : 'TBD',
+          'Skor 1': m.s1 ?? '',
+          'Tim 2': m.t2 !== null ? teams[m.t2].name : 'TBD',
+          'Skor 2': m.s2 ?? '',
+          'Pemenang': m.win !== null ? teams[m.win].name : '',
+          'Tanggal Export': exportedAt.toLocaleString('id-ID')
+        });
       });
-    });
+    }
+
+    const teamRows = teams.slice().sort((a,b) => a.seed - b.seed).map(t => ({
+      'Seed': t.seed,
+      'Tim': t.name,
+      'Warna': t.color,
+      'Logo': t.logo || ''
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const wsResults = XLSX.utils.json_to_sheet(results.length ? results : [{'Babak':'Belum ada pertandingan selesai'}]);
+    const wsTeams = XLSX.utils.json_to_sheet(teamRows);
+    const wsStandings = XLSX.utils.table_to_sheet(document.querySelector('#panel-standings table'));
+
+    wsResults['!cols'] = [
+      {wch:22},{wch:14},{wch:10},{wch:24},{wch:10},
+      {wch:24},{wch:10},{wch:24},{wch:22}
+    ];
+    wsTeams['!cols'] = [{wch:8},{wch:28},{wch:14},{wch:55}];
+
+    XLSX.utils.book_append_sheet(wb, wsResults, 'Hasil Pertandingan');
+    XLSX.utils.book_append_sheet(wb, wsTeams, 'Tim');
+    XLSX.utils.book_append_sheet(wb, wsStandings, 'Standings');
+
+    const date = exportedAt.toISOString().slice(0,10);
+    XLSX.writeFile(wb, 'ML-Tournament-' + date + '.xlsx', {compression:true});
+
+    setSyncState('synced');
+    toast('File Excel berhasil diunduh ✓', 'ok');
+  } catch (e) {
+    console.error('Export Excel error:', e);
+    setSyncState('err');
+    toast('Gagal export Excel: ' + (e.message || 'unknown error'), 'err');
   }
-  const blob=new Blob([JSON.stringify({exported:new Date().toISOString(),teams:teams.map(t=>({...t})),results},null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ml-tournament.json'; a.click();
 }
 
 document.getElementById('overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
