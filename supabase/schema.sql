@@ -52,27 +52,61 @@ create trigger matches_updated_at
 before update on public.matches
 for each row execute function public.set_updated_at();
 
--- The current public viewer/editor uses the Supabase anon key.
--- For production, replace these permissive policies with Supabase Auth
--- policies so only authenticated admins can mutate teams/matches.
+-- Production RLS: public can read, only Supabase Auth admins can write.
 alter table public.teams enable row level security;
 alter table public.matches enable row level security;
 
-drop policy if exists "teams_public_read" on public.teams;
-create policy "teams_public_read" on public.teams
-for select using (true);
+create table if not exists public.admin_users (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  role text not null default 'admin' check (role = 'admin'),
+  created_at timestamptz not null default now()
+);
+
+alter table public.admin_users enable row level security;
+
+drop policy if exists "admin_users_self_read" on public.admin_users;
+create policy "admin_users_self_read" on public.admin_users
+for select to authenticated
+using (user_id = auth.uid());
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.admin_users
+    where user_id = auth.uid() and role = 'admin'
+  );
+$$;
+
+grant execute on function public.is_admin() to anon, authenticated;
 
 drop policy if exists "teams_public_write" on public.teams;
-create policy "teams_public_write" on public.teams
-for all using (true) with check (true);
+drop policy if exists "teams_admin_insert" on public.teams;
+drop policy if exists "teams_admin_update" on public.teams;
+drop policy if exists "teams_admin_delete" on public.teams;
 
-drop policy if exists "matches_public_read" on public.matches;
-create policy "matches_public_read" on public.matches
-for select using (true);
+create policy "teams_admin_insert" on public.teams
+for insert to authenticated with check (public.is_admin());
+create policy "teams_admin_update" on public.teams
+for update to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "teams_admin_delete" on public.teams
+for delete to authenticated using (public.is_admin());
 
 drop policy if exists "matches_public_write" on public.matches;
-create policy "matches_public_write" on public.matches
-for all using (true) with check (true);
+drop policy if exists "matches_admin_insert" on public.matches;
+drop policy if exists "matches_admin_update" on public.matches;
+drop policy if exists "matches_admin_delete" on public.matches;
+
+create policy "matches_admin_insert" on public.matches
+for insert to authenticated with check (public.is_admin());
+create policy "matches_admin_update" on public.matches
+for update to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "matches_admin_delete" on public.matches
+for delete to authenticated using (public.is_admin());
 
 -- Storage bucket for team logos.
 insert into storage.buckets (id, name, public)
