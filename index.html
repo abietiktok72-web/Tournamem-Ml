@@ -101,6 +101,21 @@ header{background:linear-gradient(135deg,#0a0c14,#111827,#0a0c14);border-bottom:
 .pc-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;word-break:break-word}
 .champ-card .pc-name{color:var(--gold)}
 .bronze-card .pc-name{color:var(--bronze)}
+.runner-card{background:linear-gradient(135deg,rgba(148,163,184,.13),rgba(148,163,184,.04));border:1px solid rgba(148,163,184,.45);box-shadow:0 0 16px rgba(148,163,184,.08)}
+.runner-card .pc-lbl{color:#c0c8d8}
+.runner-card .pc-name{color:#c0c8d8}
+.tournament-modal{width:min(520px,calc(100vw - 32px));max-height:80vh;overflow:auto}
+.tournament-input{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--bdr);border-radius:7px;padding:10px 12px;color:var(--txt);font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;outline:none}
+.tournament-input:focus{border-color:var(--acc)}
+.tournament-list{display:flex;flex-direction:column;gap:8px;margin-top:12px;max-height:48vh;overflow:auto}
+.tournament-item{background:var(--surf2);border:1px solid var(--bdr);border-radius:8px;padding:11px 12px}
+.tournament-item-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tournament-item-name{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--txt)}
+.tournament-item-date{font-size:9px;color:var(--muted);white-space:nowrap}
+.tournament-podium{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.5}
+.tournament-empty{font-size:11px;color:var(--muted);text-align:center;padding:20px}
+.tournament-actions{display:flex;gap:8px;margin-top:14px}
+.tournament-actions .btn{flex:1}
 
 /* TEAM EDITOR */
 .ewrap{padding:24px;max-width:1080px;margin:0 auto}
@@ -708,6 +723,8 @@ body.view-mode .hbtns .btn-s{display:none}
     <span style="display:flex;align-items:center;font-family:Rajdhani,sans-serif;font-size:11px;color:var(--muted)">
       <span class="sync-dot" id="sync-dot"></span><span id="sync-txt">–</span>
     </span>
+    <button class="btn btn-s admin-only" onclick="openTournamentSave()">Simpan Turnamen</button>
+    <button class="btn btn-s" onclick="openTournamentHistory()">Riwayat</button>
     <button class="btn btn-s" onclick="resetAll()">Reset</button>
     <button class="btn btn-p" onclick="exportData()">↓ Export Excel</button>
   </div>
@@ -788,6 +805,27 @@ body.view-mode .hbtns .btn-s{display:none}
     <div class="mbtns">
       <button class="btn btn-s" onclick="closeAddTeamModal()">Batal</button>
       <button class="btn btn-p" onclick="confirmAddTeam()">Pasang Tim</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="tournament-overlay">
+  <div class="modal tournament-modal">
+    <h3 id="tournament-modal-title">SIMPAN TURNAMEN</h3>
+    <div class="msub" id="tournament-modal-sub">Simpan snapshot tim, bracket, skor, dan hasil akhir ke database.</div>
+    <div id="tournament-save-view">
+      <label class="add-team-label">Nama turnamen</label>
+      <input class="tournament-input" id="tournament-name-input" maxlength="80" placeholder="Contoh: ML Tournament Season 1">
+      <div class="tournament-actions">
+        <button class="btn btn-s" onclick="closeTournamentModal()">Batal</button>
+        <button class="btn btn-p" onclick="confirmSaveTournament()">Simpan</button>
+      </div>
+    </div>
+    <div id="tournament-history-view" style="display:none">
+      <div class="tournament-list" id="tournament-list"></div>
+      <div class="tournament-actions">
+        <button class="btn btn-s" onclick="closeTournamentModal()">Tutup</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1010,6 +1048,11 @@ function renderBracket() {
   // Champion podium
   const finalM = matches[4][0];
   const champ  = finalM.win  !== null ? teams[finalM.win]  : null;
+  const runner = finalM.lose !== null
+    ? teams[finalM.lose]
+    : (finalM.win !== null
+      ? teams[finalM.win === finalM.t1 ? finalM.t2 : finalM.t1]
+      : null);
   const third  = m3.win !== null ? teams[m3.win] : null;
 
   const cx = cardLeft(5);
@@ -1022,6 +1065,18 @@ function renderBracket() {
   cc.innerHTML = `${champLogoHTML}<div class="pc-lbl">Champion</div>
     <div class="pc-name">${champ ? h(champ.name) : '???'}</div>`;
   canvas.appendChild(cc);
+
+  // Runner Up podium card
+  const rcx = cx;
+  const rcy = cy + 98;
+  const rc = el('div','podium-card runner-card');
+  rc.style.cssText = `left:${rcx}px;top:${rcy}px`;
+  const runnerLogoHTML = runner && runner.logo
+    ? `<img src="${runner.logo}" style="width:36px;height:36px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
+    : `<div class="pc-crown">2</div>`;
+  rc.innerHTML = `${runnerLogoHTML}<div class="pc-lbl">Runner Up</div>
+    <div class="pc-name">${runner ? h(runner.name) : '???'}</div>`;
+  canvas.appendChild(rc);
 
   // 3rd place podium card
   const bx = tl3 + CARD_W + COL_GAP;
@@ -1678,6 +1733,7 @@ async function exportData() {
 
 document.getElementById('overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
 document.getElementById('add-team-overlay').addEventListener('click',function(e){if(e.target===this)closeAddTeamModal();});
+document.getElementById('tournament-overlay').addEventListener('click',function(e){if(e.target===this)closeTournamentModal();});
 document.addEventListener('keydown',e=>{
   if(activeR===null) return;
   if(e.key==='Enter') submitScore();
@@ -1767,6 +1823,118 @@ async function dbLoadMatches() {
   });
 
   return true;
+}
+
+function getTournamentSnapshot() {
+  propagate();
+  const finalM = matches[4][0];
+  const m3 = matches[5][0];
+  const champion = finalM.win !== null ? teams[finalM.win] : null;
+  const runnerUp = finalM.lose !== null
+    ? teams[finalM.lose]
+    : (finalM.win !== null ? teams[finalM.win === finalM.t1 ? finalM.t2 : finalM.t1] : null);
+  const third = m3.win !== null ? teams[m3.win] : null;
+
+  return {
+    version: 1,
+    saved_at: new Date().toISOString(),
+    teams: teams.map(t => ({name:t.name, seed:t.seed, logo:t.logo || null})),
+    matches: matches.map(round => round.map(m => ({
+      t1:m.t1, t2:m.t2, s1:m.s1, s2:m.s2, win:m.win, lose:m.lose
+    }))),
+    podium: {
+      champion: champion ? champion.name : null,
+      runner_up: runnerUp ? runnerUp.name : null,
+      third_place: third ? third.name : null
+    }
+  };
+}
+
+function openTournamentSave() {
+  if (!isAdmin) {
+    toast('Login admin diperlukan untuk menyimpan turnamen','err');
+    return;
+  }
+  document.getElementById('tournament-modal-title').textContent = 'SIMPAN TURNAMEN';
+  document.getElementById('tournament-modal-sub').textContent = 'Simpan snapshot tim, bracket, skor, dan hasil akhir ke database.';
+  document.getElementById('tournament-save-view').style.display = '';
+  document.getElementById('tournament-history-view').style.display = 'none';
+  const input = document.getElementById('tournament-name-input');
+  input.value = 'ML Tournament — ' + new Date().toLocaleDateString('id-ID');
+  document.getElementById('tournament-overlay').classList.add('on');
+  setTimeout(() => { input.focus(); input.select(); }, 50);
+}
+
+function closeTournamentModal() {
+  document.getElementById('tournament-overlay').classList.remove('on');
+}
+
+async function confirmSaveTournament() {
+  if (!isAdmin) return;
+  const input = document.getElementById('tournament-name-input');
+  const name = input.value.trim();
+  if (!name) {
+    toast('Nama turnamen wajib diisi','err');
+    input.focus();
+    return;
+  }
+
+  try {
+    setSyncState('syncing');
+    const snapshot = getTournamentSnapshot();
+    const { error } = await sb.from('tournaments').insert({name, snapshot});
+    if (error) throw error;
+
+    setSyncState('synced');
+    closeTournamentModal();
+    toast('Turnamen berhasil disimpan ✓','ok');
+  } catch (e) {
+    console.error('Save tournament error:', e);
+    setSyncState('err');
+    toast('Gagal simpan turnamen: ' + (e.message || 'unknown error'),'err');
+  }
+}
+
+async function openTournamentHistory() {
+  document.getElementById('tournament-modal-title').textContent = 'RIWAYAT TURNAMEN';
+  document.getElementById('tournament-modal-sub').textContent = 'Arsip turnamen yang sudah disimpan di Supabase.';
+  document.getElementById('tournament-save-view').style.display = 'none';
+  document.getElementById('tournament-history-view').style.display = '';
+  const list = document.getElementById('tournament-list');
+  list.innerHTML = '<div class="tournament-empty">Memuat riwayat...</div>';
+  document.getElementById('tournament-overlay').classList.add('on');
+
+  const { data, error } = await sb
+    .from('tournaments')
+    .select('id,name,snapshot,created_at')
+    .order('created_at', { ascending:false })
+    .limit(30);
+
+  if (error) {
+    console.error('Load tournament history error:', error);
+    list.innerHTML = '<div class="tournament-empty">Gagal memuat riwayat.</div>';
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    list.innerHTML = '<div class="tournament-empty">Belum ada turnamen tersimpan.</div>';
+    return;
+  }
+
+  list.innerHTML = data.map(row => {
+    const p = row.snapshot?.podium || {};
+    const dt = new Date(row.created_at).toLocaleString('id-ID');
+    return `<div class="tournament-item">
+      <div class="tournament-item-head">
+        <div class="tournament-item-name">${h(row.name)}</div>
+        <div class="tournament-item-date">${h(dt)}</div>
+      </div>
+      <div class="tournament-podium">
+        🥇 ${h(p.champion || '???')} · 🥈 ${h(p.runner_up || '???')} · 🥉 ${h(p.third_place || '???')}<br>
+        ${Array.isArray(row.snapshot?.teams) ? row.snapshot.teams.length : 0} tim · data bracket tersimpan
+      </div>
+    </div>`;
+  }).join('');
 }
 
 async function dbSaveTeams() {
