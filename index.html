@@ -1673,6 +1673,41 @@ async function dbLoadTeams() {
   return false; // no data yet, use defaults
 }
 
+async function dbLoadMatches() {
+  const { data, error } = await sb.from('matches').select('*').order('round').order('position');
+  if (error) {
+    console.error('Load matches error:', error);
+    return false;
+  }
+  if (!data || data.length === 0) return true;
+
+  // Rebuild local bracket from Supabase.
+  initMatches();
+
+  data.forEach(row => {
+    const r = row.round;
+    const i = row.position;
+    if (r > 5 || !matches[r] || !matches[r][i]) return;
+
+    const t1idx   = row.team1_id  !== null ? teams.findIndex(t => t.id === row.team1_id)  : null;
+    const t2idx   = row.team2_id  !== null ? teams.findIndex(t => t.id === row.team2_id)  : null;
+    const winIdx  = row.winner_id !== null ? teams.findIndex(t => t.id === row.winner_id) : null;
+    const loseIdx = row.loser_id  !== null ? teams.findIndex(t => t.id === row.loser_id)  : null;
+
+    matches[r][i] = {
+      dbId: row.id,
+      t1: t1idx !== null && t1idx >= 0 ? t1idx : null,
+      t2: t2idx !== null && t2idx >= 0 ? t2idx : null,
+      s1: row.score1 !== null ? row.score1 : null,
+      s2: row.score2 !== null ? row.score2 : null,
+      win: winIdx !== null && winIdx >= 0 ? winIdx : null,
+      lose: loseIdx !== null && loseIdx >= 0 ? loseIdx : null
+    };
+  });
+
+  return true;
+}
+
 async function dbSaveTeams() {
   setSyncState('syncing');
   // Separate teams that already have DB id (update) vs new ones (insert)
@@ -2047,17 +2082,13 @@ async function boot() {
     await refreshAdminState();
 
     // 1. Load teams
-    const hasTeams = await dbLoadTeams();
-    if (!hasTeams) {
-      // Do not seed production data from an anonymous browser.
-      // The existing tournament data should already be present in Supabase.
-      throw new Error('Data tim belum tersedia di database.');
-    }
+    // Empty Team Pool is valid: admin can start from 0 teams.
+    await dbLoadTeams();
 
     // 2. Init match structure
     initMatches();
 
-    // 3. Load match results
+    // 3. Load bracket assignments and match results
     await dbLoadMatches();
 
     // 4. Render everything
