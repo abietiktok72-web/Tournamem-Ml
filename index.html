@@ -1690,7 +1690,7 @@ async function dbSaveTeams() {
 
   if (toInsert.length > 0) {
     const rows = toInsert.map(t => ({
-      name: t.name, color: t.color, seed: t.seed, logo_url: t.logo || null
+      name: t.name, seed: t.seed, logo_url: t.logo || null
     }));
     const { data, error } = await sb.from('teams').insert(rows).select();
     if (error) { setSyncState('err'); toast('Gagal simpan tim: '+error.message,'err'); return false; }
@@ -1867,26 +1867,6 @@ function setName(i, v) {
   nameTimer = setTimeout(()=>dbSaveTeams(), 800); // debounce
 }
 
-let colorTimer = null;
-function setColor(i, v) {
-  teams[i].color = v;
-  const d = document.getElementById('cd'+i); if(d) d.style.background=v;
-  renderBracket();
-  clearTimeout(colorTimer);
-  colorTimer = setTimeout(()=>dbSaveTeams(), 500);
-}
-
-// ══════════════════════════════════════════════
-// OVERRIDE randomSeeds & resetNames
-// ══════════════════════════════════════════════
-// Random seeding is intentionally removed.
-async function randomSeeds() {
-  toast('Acak seeding sudah dinonaktifkan. Tambahkan tim manual lewat + Tambah Tim.','info');
-}
-
-async function resetNames() {
-  await clearBracketSetup();
-}
 
 // ══════════════════════════════════════════════
 // OVERRIDE resetAll
