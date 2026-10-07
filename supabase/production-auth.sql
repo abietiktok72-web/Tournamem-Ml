@@ -41,6 +41,14 @@ grant execute on function public.is_admin() to anon, authenticated;
 alter table public.teams enable row level security;
 alter table public.matches enable row level security;
 
+drop policy if exists "teams_public_read" on public.teams;
+create policy "teams_public_read" on public.teams
+for select using (true);
+
+drop policy if exists "matches_public_read" on public.matches;
+create policy "matches_public_read" on public.matches
+for select using (true);
+
 drop policy if exists "teams_public_write" on public.teams;
 drop policy if exists "teams_admin_insert" on public.teams;
 drop policy if exists "teams_admin_update" on public.teams;
