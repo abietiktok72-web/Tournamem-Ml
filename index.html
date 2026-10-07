@@ -693,7 +693,7 @@ body.view-mode .hbtns .btn-s{display:none}
 </div>
 
 <!-- Floating admin button -->
-<button class="admin-btn" id="admin-btn" onclick="toggleAdminLogin()" title="Admin Login">🔐</button>
+<button class="admin-btn" id="admin-btn" onclick="toggleAdminLogin()" title="Admin Login">Admin</button>
 
 <div class="loading-screen" id="loading-screen">
   <div class="spinner"></div>
@@ -709,7 +709,7 @@ body.view-mode .hbtns .btn-s{display:none}
     <span style="display:flex;align-items:center;font-family:Rajdhani,sans-serif;font-size:11px;color:var(--muted)">
       <span class="sync-dot" id="sync-dot"></span><span id="sync-txt">–</span>
     </span>
-    <button class="btn btn-s" onclick="resetAll()">↺ Reset</button>
+    <button class="btn btn-s" onclick="resetAll()">Reset</button>
     <button class="btn btn-p" onclick="exportData()">↓ Export Excel</button>
   </div>
 </header>
@@ -737,7 +737,10 @@ body.view-mode .hbtns .btn-s{display:none}
   <div class="ewrap">
     <div class="page-head"><div><div class="eyebrow">TEAM MANAGEMENT</div><div class="page-title">Team Pool</div><div class="page-sub">Kelola nama, identitas, dan logo tim yang tersedia untuk bracket.</div></div><div class="page-actions"><button class="btn btn-p" onclick="openAddTeamModal()">Tambah Tim</button><button class="btn btn-s" onclick="clearBracketSetup()">Reset Bracket</button></div></div><div class="team-toolbar"><div><strong id="team-count">0</strong> tim tersedia</div><div>Perubahan tersimpan otomatis</div></div>
     <div class="tgrid" id="tgrid"></div>
- class="panel">
+  </div>
+</div>
+
+<div id="panel-standings" class="panel">
   <div class="swrap">
     <div class="page-head standings-head"><div><div class="eyebrow">TOURNAMENT OVERVIEW</div><div class="page-title">Standings</div><div class="page-sub">Posisi, hasil pertandingan, dan progres setiap tim.</div></div><div class="standings-summary" id="standings-summary"></div></div><div class="standings-card"><table>
       <thead><tr><th>#</th><th>Tim</th><th>Babak</th><th>W</th><th>L</th><th>Status</th></tr></thead>
@@ -762,7 +765,7 @@ body.view-mode .hbtns .btn-s{display:none}
     <div class="merr"  id="merr"></div>
     <div class="mbtns">
       <button class="btn btn-s" onclick="closeModal()">Batal</button>
-      <button class="btn btn-p" onclick="submitScore()">✓ Simpan</button>
+      <button class="btn btn-p" onclick="submitScore()">Simpan</button>
     </div>
   </div>
 </div>
