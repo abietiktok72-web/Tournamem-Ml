@@ -1345,17 +1345,45 @@ async function resetNames() {
 // OVERRIDE resetAll
 // ══════════════════════════════════════════════
 async function resetAll() {
-  if(!isAdmin) return;
+  if(!isAdmin) {
+    toast('Login admin diperlukan untuk reset','err');
+    return;
+  }
+
   if(!confirm('Reset semua hasil pertandingan?\nNama tim tetap tersimpan.')) return;
-  // Clear all match results in DB
+
   setSyncState('syncing');
-  const { error } = await sb.from('matches').update({
-    score1:null,score2:null,winner_id:null,loser_id:null
-  }).neq('id',0); // update all
-  if(error){ setSyncState('err'); toast('Gagal reset','err'); return; }
-  setSyncState('synced');
-  initMatches(); renderBracket(); renderStandings();
-  toast('Semua hasil direset ✓','ok');
+
+  try {
+    const { data, error } = await sb
+      .from('matches')
+      .update({
+        score1: null,
+        score2: null,
+        winner_id: null,
+        loser_id: null
+      })
+      .not('id', 'is', null)
+      .select('id');
+
+    if (error) throw error;
+
+    initMatches();
+    renderBracket();
+    renderStandings();
+
+    setSyncState('synced');
+
+    if (!data || data.length === 0) {
+      toast('Reset selesai — belum ada hasil tersimpan di database', 'info');
+    } else {
+      toast(`Semua hasil direset ✓ (${data.length} match)`, 'ok');
+    }
+  } catch (e) {
+    console.error('Reset error:', e);
+    setSyncState('err');
+    toast('Gagal reset: ' + (e.message || 'unknown error'), 'err');
+  }
 }
 
 // ══════════════════════════════════════════════
