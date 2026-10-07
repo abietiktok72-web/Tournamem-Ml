@@ -947,10 +947,7 @@ function h(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function resetAll() {
-  if(!confirm('Reset semua hasil?\nNama tim tetap tersimpan.')) return;
-  initMatches(); renderBracket(); renderStandings();
-}
+
 
 async function exportData() {
   try {
@@ -1260,6 +1257,11 @@ async function removeLogo(i) {
 // OVERRIDE submitScore to save to DB
 // ══════════════════════════════════════════════
 async function submitScore() {
+  if (!isAdmin) {
+    toast('Login admin diperlukan untuk menyimpan skor','err');
+    return;
+  }
+
   const m  = matches[activeR][activeI];
   const s1 = Math.max(0, parseInt(document.getElementById('si1').value)||0);
   const s2 = Math.max(0, parseInt(document.getElementById('si2').value)||0);
@@ -1280,8 +1282,13 @@ async function submitScore() {
   renderBracket();
   renderStandings();
 
-  await dbSaveMatch(savedR, savedI);
-  toast('Skor tersimpan ✓', 'ok');
+  const saved = await dbSaveMatch(savedR, savedI);
+  if (saved) {
+    toast('Skor tersimpan ✓', 'ok');
+  } else {
+    // dbSaveMatch already shows the real database error.
+    toast('Skor belum tersimpan ke database','err');
+  }
 }
 
 // ══════════════════════════════════════════════
