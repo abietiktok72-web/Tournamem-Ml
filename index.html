@@ -865,7 +865,9 @@ function updateBracketTemplateUI(){
   const info=document.getElementById('format-info');
   if(info)info.textContent=bracketConfig().names.slice(0,-1).join(' · ')+' = Best of 3 · Final = Best of 5';
 }
-const RNAMES=BRACKET_TEMPLATES[32].names,const_RFMTS=BRACKET_TEMPLATES[32].formats,const_RWIN=BRACKET_TEMPLATES[32].wins;
+const RNAMES=BRACKET_TEMPLATES[32].names;
+const RFMTS=BRACKET_TEMPLATES[32].formats;
+const RWIN=BRACKET_TEMPLATES[32].wins;
 const WIN_3RD=3;
 
 // Standard 32-team seeding — slot index → seed number
