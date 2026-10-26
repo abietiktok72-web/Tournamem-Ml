@@ -2163,7 +2163,8 @@ async function normalizeLogoFile(file) {
   const blob = await new Promise((resolve, reject) => {
     canvas.toBlob(result => result ? resolve(result) : reject(new Error('Gagal memproses gambar logo.')), 'image/png');
   });
-  const baseName = file.name.replace(/\\.[^.]+$/, '') || 'logo-tim';
+  const dot = file.name.lastIndexOf('.');
+  const baseName = (dot > 0 ? file.name.slice(0, dot) : file.name) || 'logo-tim';
   return new File([blob], baseName + '-fit.png', { type: 'image/png' });
 }
 
