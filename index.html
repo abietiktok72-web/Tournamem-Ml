@@ -1745,25 +1745,25 @@ async function dbLoadTeams() {
     }));
     return true;
   }
-  // Team Pool kosong: seed data pendaftaran HMC dari formulir.
-  // Hanya admin yang boleh membuat data awal agar public viewer tidak mencoba INSERT.
+
+  // Team Pool kosong: tampilkan data pendaftaran HMC sebagai seed lokal.
+  // Jika admin sedang login, seed ini langsung dipersist ke Supabase.
+  const registeredTeams = [
+    {name:'EL FAMILIYA', color:'#00d4ff', seed:1, logo:'https://drive.google.com/uc?export=view&id=1P-LHnaxIOHjtcqck-ZZlLSj4IIxuX5Bf'},
+    {name:'TLIP', color:'#7c3aed', seed:2, logo:'https://drive.google.com/uc?export=view&id=1Ny0Ji0InJf4mIYq-36bno-affsVyc2Qp'},
+    {name:'Mie sedaap', color:'#10b981', seed:3, logo:'https://drive.google.com/uc?export=view&id=1_VQMubkxjT4DDTkLNxXXyztV8QSZvt5h'},
+    {name:'Licik Esport', color:'#f59e0b', seed:4, logo:'https://drive.google.com/uc?export=view&id=1_Dqf1e7xVqzOGruMnhAXjtm5knEvLZb_'},
+    {name:'KINGSTONE 2.0', color:'#ef4444', seed:5, logo:'https://drive.google.com/uc?export=view&id=1GnHEStb97qUrempDBLV_bZxfYZMnOx52'},
+    {name:'Asepsap', color:'#ec4899', seed:6, logo:'https://drive.google.com/uc?export=view&id=1X3tDAOq3tPNdJdPf7a-xI5Svr81eZvoC'},
+    {name:'TOPI MIRING SMADA', color:'#06b6d4', seed:7, logo:null},
+    {name:'Amnesia', color:'#8b5cf6', seed:8, logo:'https://drive.google.com/uc?export=view&id=1RoTXE8MCEeXZvS_z8b25YufkJ8i5As19'}
+  ];
+  teams = registeredTeams.map(t => ({...t, id:null}));
   if (isAdmin) {
-    const registeredTeams = [
-      {name:'EL FAMILIYA', color:'#00d4ff', seed:1, logo:'https://drive.google.com/uc?export=view&id=1P-LHnaxIOHjtcqck-ZZlLSj4IIxuX5Bf'},
-      {name:'TLIP', color:'#7c3aed', seed:2, logo:'https://drive.google.com/uc?export=view&id=1Ny0Ji0InJf4mIYq-36bno-affsVyc2Qp'},
-      {name:'Mie sedaap', color:'#10b981', seed:3, logo:'https://drive.google.com/uc?export=view&id=1_VQMubkxjT4DDTkLNxXXyztV8QSZvt5h'},
-      {name:'Licik Esport', color:'#f59e0b', seed:4, logo:'https://drive.google.com/uc?export=view&id=1_Dqf1e7xVqzOGruMnhAXjtm5knEvLZb_'},
-      {name:'KINGSTONE 2.0', color:'#ef4444', seed:5, logo:'https://drive.google.com/uc?export=view&id=1GnHEStb97qUrempDBLV_bZxfYZMnOx52'},
-      {name:'Asepsap', color:'#ec4899', seed:6, logo:'https://drive.google.com/uc?export=view&id=1X3tDAOq3tPNdJdPf7a-xI5Svr81eZvoC'},
-      {name:'TOPI MIRING SMADA', color:'#06b6d4', seed:7, logo:null},
-      {name:'Amnesia', color:'#8b5cf6', seed:8, logo:'https://drive.google.com/uc?export=view&id=1RoTXE8MCEeXZvS_z8b25YufkJ8i5As19'}
-    ];
-    teams = registeredTeams.map(t => ({...t, id:null}));
     const saved = await dbSaveTeams();
     if (saved) return true;
-    teams = [];
   }
-  return false; // no data yet
+  return true;
 
 async function dbLoadMatches() {
   const { data, error } = await sb
