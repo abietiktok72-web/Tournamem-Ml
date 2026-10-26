@@ -379,6 +379,10 @@ header{
   box-shadow:0 2px 8px rgba(20,24,40,.025);
 }
 .iitem{color:#7d8592}
+.template-picker{display:flex;align-items:center;gap:8px}
+.template-picker label{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#7d8592}
+.template-picker select{appearance:none;background:#f8f9fb;border:1px solid #dfe3e9;border-radius:8px;padding:7px 28px 7px 9px;color:#20242d;font:600 12px Inter,ui-sans-serif,system-ui,sans-serif;outline:none;cursor:pointer}
+.template-picker select:focus{border-color:#6366f1}
 .idot{width:7px;height:7px}
 
 /* Bracket workspace */
@@ -739,7 +743,12 @@ body.view-mode .hbtns .btn-s{display:none}
 <div id="panel-bracket" class="panel on">
   <div class="bwrap">
     <div class="ibar">
-      <div class="iitem"><div class="idot"></div>R32 · R16 · QF = Best of 3</div>
+      <div class="template-picker admin-only"><label for="bracket-template">Template Bracket</label>
+        <select id="bracket-template" onchange="setBracketTemplate(this.value)">
+          <option value="8">8 Besar</option><option value="16">16 Besar</option><option value="32">32 Besar</option>
+        </select>
+      </div>
+      <div class="iitem"><div class="idot"></div><span id="format-info">Memuat format...</span></div>
       <div class="iitem"><div class="idot v"></div>Semifinal = Best of 5</div>
       <div class="iitem"><div class="idot g"></div>Final = Best of 5</div>
       <div class="iitem"><div class="idot b"></div>Perebutan Juara 3 = Best of 5</div>
@@ -840,11 +849,24 @@ const COL_GAP = 44;
 const SLOT_H  = CARD_H + 8;   // base slot height (card + gap between cards in R0)
 const HDR_H   = 32;            // space above cards for round header
 
-// rounds 0-4 = R32,R16,QF,SF,Final   round 5 = 3rd place
-const RNAMES = ['Round of 32','Round of 16','Quarterfinal','Semifinal','Final'];
-const RFMTS  = ['Best of 3','Best of 3','Best of 3','Best of 5','Best of 5'];
-const RWIN   = [2, 2, 2, 3, 3];   // wins needed for rounds 0-4
-const WIN_3RD = 3;                 // wins needed for 3rd place (BO5)
+// Bracket templates: 8 / 16 / 32 teams.
+const BRACKET_TEMPLATES={
+  8:{names:['Quarterfinal','Semifinal','Final'],formats:['Best of 3','Best of 5','Best of 5'],wins:[2,3,3]},
+  16:{names:['Round of 16','Quarterfinal','Semifinal','Final'],formats:['Best of 3','Best of 3','Best of 5','Best of 5'],wins:[2,2,3,3]},
+  32:{names:['Round of 32','Round of 16','Quarterfinal','Semifinal','Final'],formats:['Best of 3','Best of 3','Best of 3','Best of 5','Best of 5'],wins:[2,2,2,3,3]}
+};
+let bracketSize=Number(localStorage.getItem('mlBracketSize'))||32;
+function bracketConfig(){return BRACKET_TEMPLATES[bracketSize]||BRACKET_TEMPLATES[32];}
+function finalRoundIndex(){return bracketConfig().names.length-1;}
+function semifinalRoundIndex(){return finalRoundIndex()-1;}
+function bracketRoundCount(){return bracketConfig().names.length;}
+function updateBracketTemplateUI(){
+  const sel=document.getElementById('bracket-template'); if(sel)sel.value=String(bracketSize);
+  const info=document.getElementById('format-info');
+  if(info)info.textContent=bracketConfig().names.slice(0,-1).join(' · ')+' = Best of 3 · Final = Best of 5';
+}
+const RNAMES=BRACKET_TEMPLATES[32].names,const_RFMTS=BRACKET_TEMPLATES[32].formats,const_RWIN=BRACKET_TEMPLATES[32].wins;
+const WIN_3RD=3;
 
 // Standard 32-team seeding — slot index → seed number
 // Slots 0,1 = match 0 in R0; slots 2,3 = match 1, etc.
@@ -895,22 +917,32 @@ let activeR = null, activeI = null;
 // ══════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════
-function initMatches() {
-  matches = [];
-
-  // Round 0 is intentionally empty. Admin places teams manually.
-  matches.push(Array.from({length:16}, ()=>({
-    t1:null,t2:null,s1:null,s2:null,win:null,lose:null
-  })));
-
-  [8, 4, 2, 1].forEach(n => {
-    matches.push(Array.from({length:n}, ()=>({
-      t1:null,t2:null,s1:null,s2:null,win:null,lose:null
-    })));
-  });
-
-  // 3rd place: losers of both semifinal matches
-  matches.push([{t1:null,t2:null,s1:null,s2:null,win:null,lose:null}]);
+function initMatches(){
+  matches=Array.from({length:6},()=>[]);
+  const firstRoundMatches=bracketSize/2;
+  for(let r=0;r<bracketRoundCount();r++){
+    matches[r]=Array.from({length:firstRoundMatches/Math.pow(2,r)},()=>({t1:null,t2:null,s1:null,s2:null,win:null,lose:null}));
+  }
+  matches[5]=[{t1:null,t2:null,s1:null,s2:null,win:null,lose:null}];
+  updateBracketTemplateUI();
+}
+async function setBracketTemplate(value){
+  if(!isAdmin)return;
+  const next=Number(value); if(!BRACKET_TEMPLATES[next]||next===bracketSize)return;
+  const oldSize=bracketSize;
+  if(!confirm(`Ganti template dari ${oldSize} Besar ke ${next} Besar?\n\nBracket dan hasil pertandingan saat ini akan dikosongkan. Data Team Pool tetap aman.`)){
+    updateBracketTemplateUI();return;
+  }
+  bracketSize=next;localStorage.setItem('mlBracketSize',String(next));
+  initMatches();renderBracket();renderStandings();
+  try{
+    setSyncState('syncing');
+    const {error}=await sb.from('matches').delete().not('id','is',null);
+    if(error)throw error;
+    setSyncState('synced');toast(`Template ${next} Besar diterapkan ✓`,'ok');
+  }catch(e){
+    setSyncState('err');toast('Template lokal berubah, tetapi database gagal dibersihkan: '+(e.message||'unknown error'),'err');
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -918,44 +950,31 @@ function initMatches() {
 //   Winners advance up the main bracket (r0→r4).
 //   Losers of SF (r3) go to 3rd place match (r5).
 // ══════════════════════════════════════════════
-function propagate() {
-  // Main bracket: winners advance
-  for (let r = 0; r <= 3; r++) {
-    matches[r].forEach((m, i) => {
-      const nm = matches[r+1][Math.floor(i/2)];
-      if (i % 2 === 0) nm.t1 = m.win;
-      else             nm.t2 = m.win;
+function propagate(){
+  const finalR=finalRoundIndex(),sfR=semifinalRoundIndex();
+  for(let r=0;r<finalR;r++){
+    matches[r].forEach((m,i)=>{
+      const nm=matches[r+1][Math.floor(i/2)];
+      if(i%2===0)nm.t1=m.win;else nm.t2=m.win;
     });
   }
-
-  // 3rd place: losers of SF (round 3, matches 0 and 1)
-  const sf0 = matches[3][0];
-  const sf1 = matches[3][1];
-  const m3  = matches[5][0];
-  m3.t1 = sf0.lose;
-  m3.t2 = sf1.lose;
+  const sf0=matches[sfR][0],sf1=matches[sfR][1],m3=matches[5][0];
+  m3.t1=sf0?sf0.lose:null;m3.t2=sf1?sf1.lose:null;
 }
 
 // ══════════════════════════════════════════════
 // CLEAR DOWNSTREAM
 // ══════════════════════════════════════════════
-function clearDown(r, i) {
-  // For main bracket rounds 0-3: clear winner path upward
-  if (r <= 3) {
-    let ci = i;
-    for (let cr = r+1; cr <= 4; cr++) {
-      ci = Math.floor(ci/2);
-      const nm = matches[cr][ci];
-      nm.s1=null; nm.s2=null; nm.win=null; nm.lose=null;
+function clearDown(r,i){
+  const finalR=finalRoundIndex(),sfR=semifinalRoundIndex();
+  if(r<=finalR-1){
+    let ci=i;
+    for(let cr=r+1;cr<=finalR;cr++){
+      ci=Math.floor(ci/2);const nm=matches[cr][ci];
+      nm.s1=null;nm.s2=null;nm.win=null;nm.lose=null;
     }
-    // If clearing SF (r=3), also clear 3rd place
-    if (r === 3) {
-      const m3 = matches[5][0];
-      m3.s1=null; m3.s2=null; m3.win=null; m3.lose=null;
-    }
+    if(r===sfR){const m3=matches[5][0];m3.s1=null;m3.s2=null;m3.win=null;m3.lose=null;}
   }
-  // For final (r=4): nothing downstream
-  // For 3rd place (r=5): nothing downstream
 }
 
 // ══════════════════════════════════════════════
@@ -964,131 +983,50 @@ function clearDown(r, i) {
 //   cardTop(r,i): vertical center of match i in round r
 //   cardLeft(r):  horizontal position of round r column
 // ══════════════════════════════════════════════
-const CANVAS_H = 16 * SLOT_H;
-
-function cardTop(r, i) {
-  const spm = Math.pow(2, r);   // slots per match in round r
-  return HDR_H + i * spm * SLOT_H + (spm - 1) * SLOT_H / 2;
-}
-
-function cardLeft(r) {
-  return r * (CARD_W + COL_GAP);
-}
-
-// 3rd place match sits below the Final, offset to align with SF column
-// We'll place it in the SF column (col 3), below the two SF matches
-function thirdPlaceLeft() {
-  return cardLeft(3);
-}
+function canvasHeight(){return bracketSize*SLOT_H;}
+function cardTop(r,i){const spm=Math.pow(2,r);return HDR_H+i*spm*SLOT_H+(spm-1)*SLOT_H/2;}
+function cardLeft(r){return r*(CARD_W+COL_GAP);}
+function thirdPlaceLeft(){return cardLeft(semifinalRoundIndex());}
 
 function thirdPlaceTop() {
   // Below the bracket canvas, with some margin
-  return CANVAS_H + HDR_H + 40;
+  return canvasHeight()+HDR_H+40;
 }
 
 // ══════════════════════════════════════════════
 // RENDER BRACKET
 // ══════════════════════════════════════════════
-function renderBracket() {
-  propagate();
-
-  const canvas = document.getElementById('bcanvas');
-  canvas.innerHTML = '';
-
-  const extraRowH = CARD_H + 80; // space for 3rd place row below
-  const totalH    = CANVAS_H + HDR_H + extraRowH;
-  const totalW    = cardLeft(5) + 155 + 20;
-
-  canvas.style.width  = totalW + 'px';
-  canvas.style.height = totalH + 'px';
-
-  // SVG for connector lines
-  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('class','bsvg');
-  svg.setAttribute('width', totalW);
-  svg.setAttribute('height', totalH);
-  canvas.appendChild(svg);
-
-  // ── Main bracket rounds 0-4 ──
-  for (let r = 0; r <= 4; r++) {
-    // Header
-    const hdr = el('div','rhdr');
-    hdr.style.cssText = `left:${cardLeft(r)}px;top:0`;
-    hdr.innerHTML = `${RNAMES[r]}<span class="rfmt">${RFMTS[r]}</span>`;
-    canvas.appendChild(hdr);
-
-    // Cards + connectors
-    matches[r].forEach((m, i) => {
-      const card = buildCard(m, r, i, false);
-      card.style.cssText = `left:${cardLeft(r)}px;top:${cardTop(r,i)}px`;
-      canvas.appendChild(card);
-      if (r < 4) drawConnector(svg, r, i, false);
+function renderBracket(){
+  propagate();updateBracketTemplateUI();
+  const canvas=document.getElementById('bcanvas');canvas.innerHTML='';
+  const finalR=finalRoundIndex(),cfg=bracketConfig(),totalH=canvasHeight()+HDR_H+CARD_H+80,totalW=cardLeft(finalR+2)+175;
+  canvas.style.width=totalW+'px';canvas.style.height=totalH+'px';
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','bsvg');svg.setAttribute('width',totalW);svg.setAttribute('height',totalH);canvas.appendChild(svg);
+  for(let r=0;r<=finalR;r++){
+    const hdr=el('div','rhdr');hdr.style.cssText=`left:${cardLeft(r)}px;top:0`;
+    hdr.innerHTML=`${cfg.names[r]}<span class="rfmt">${cfg.formats[r]}</span>`;canvas.appendChild(hdr);
+    matches[r].forEach((m,i)=>{
+      const card=buildCard(m,r,i,false);card.style.cssText=`left:${cardLeft(r)}px;top:${cardTop(r,i)}px`;
+      canvas.appendChild(card);if(r<finalR)drawConnector(svg,r,i,false);
     });
   }
-
-  // ── 3rd place section ──
-  const tp3 = thirdPlaceTop();
-  const tl3 = thirdPlaceLeft();
-
-  // Separator label
-  const sep = el('div','rhdr bronze-hdr');
-  sep.style.cssText = `left:${tl3}px;top:${tp3-28}px;width:auto;white-space:nowrap`;
-  sep.innerHTML = `🥉 Perebutan Juara 3<span class="rfmt">Best of 5</span>`;
-  canvas.appendChild(sep);
-
-  // 3rd place card
-  const m3 = matches[5][0];
-  const card3 = buildCard(m3, 5, 0, true);
-  card3.style.cssText = `left:${tl3}px;top:${tp3}px`;
-  canvas.appendChild(card3);
-
-  // Dashed lines from SF losers to 3rd place card
-  drawThirdPlaceConnectors(svg, tp3);
-
-  // Champion podium
-  const finalM = matches[4][0];
-  const champ  = finalM.win  !== null ? teams[finalM.win]  : null;
-  const runner = finalM.lose !== null
-    ? teams[finalM.lose]
-    : (finalM.win !== null
-      ? teams[finalM.win === finalM.t1 ? finalM.t2 : finalM.t1]
-      : null);
-  const third  = m3.win !== null ? teams[m3.win] : null;
-
-  const cx = cardLeft(5);
-  const cy = cardTop(4,0) + CARD_H/2 - 65;
-  const cc = el('div','podium-card champ-card');
-  cc.style.cssText = `left:${cx}px;top:${cy}px`;
-  const champLogoHTML = champ && champ.logo
-    ? `<img src="${champ.logo}" alt="${h(champ.name)}" style="width:40px;height:40px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
-    : `<div class="pc-crown">1</div>`;
-  cc.innerHTML = `${champLogoHTML}<div class="pc-lbl">Champion</div>
-    <div class="pc-name">${champ ? h(champ.name) : '???'}</div>`;
-  canvas.appendChild(cc);
-
-  // Runner Up podium card
-  const rcx = cx;
-  const rcy = cy + 98;
-  const rc = el('div','podium-card runner-card');
-  rc.style.cssText = `left:${rcx}px;top:${rcy}px`;
-  const runnerLogoHTML = runner && runner.logo
-    ? `<img src="${runner.logo}" alt="${h(runner.name)}" style="width:36px;height:36px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
-    : `<div class="pc-crown">2</div>`;
-  rc.innerHTML = `${runnerLogoHTML}<div class="pc-lbl">Runner Up</div>
-    <div class="pc-name">${runner ? h(runner.name) : '???'}</div>`;
-  canvas.appendChild(rc);
-
-  // 3rd place podium card
-  const bx = tl3 + CARD_W + COL_GAP;
-  const by = tp3 + CARD_H/2 - 55;
-  const bc = el('div','podium-card bronze-card');
-  bc.style.cssText = `left:${bx}px;top:${by}px`;
-  const thirdLogoHTML = third && third.logo
-    ? `<img src="${third.logo}" alt="${h(third.name)}" style="width:36px;height:36px;object-fit:contain;border-radius:8px;margin-bottom:5px">`
-    : `<div class="pc-crown">3</div>`;
-  bc.innerHTML = `${thirdLogoHTML}<div class="pc-lbl">Juara 3</div>
-    <div class="pc-name">${third ? h(third.name) : '???'}</div>`;
-  canvas.appendChild(bc);
+  const tp3=thirdPlaceTop(),tl3=thirdPlaceLeft(),m3=matches[5][0];
+  const sep=el('div','rhdr bronze-hdr');sep.style.cssText=`left:${tl3}px;top:${tp3-28}px;width:auto;white-space:nowrap`;
+  sep.innerHTML='🥉 Perebutan Juara 3<span class="rfmt">Best of 5</span>';canvas.appendChild(sep);
+  const card3=buildCard(m3,5,0,true);card3.style.cssText=`left:${tl3}px;top:${tp3}px`;canvas.appendChild(card3);drawThirdPlaceConnectors(svg,tp3);
+  const finalM=matches[finalR][0],champ=finalM.win!==null?teams[finalM.win]:null;
+  const runner=finalM.lose!==null?teams[finalM.lose]:(finalM.win!==null?teams[finalM.win===finalM.t1?finalM.t2:finalM.t1]:null),third=m3.win!==null?teams[m3.win]:null;
+  const cx=cardLeft(finalR+1),cy=cardTop(finalR,0)+CARD_H/2-65;
+  const cc=el('div','podium-card champ-card');cc.style.cssText=`left:${cx}px;top:${cy}px`;
+  const cl=champ&&champ.logo?`<img src="${champ.logo}" alt="${h(champ.name)}" style="width:40px;height:40px;object-fit:contain;border-radius:8px;margin-bottom:5px">`:'<div class="pc-crown">1</div>';
+  cc.innerHTML=`${cl}<div class="pc-lbl">Champion</div><div class="pc-name">${champ?h(champ.name):'???'}</div>`;canvas.appendChild(cc);
+  const rc=el('div','podium-card runner-card');rc.style.cssText=`left:${cx}px;top:${cy+98}px`;
+  const rl=runner&&runner.logo?`<img src="${runner.logo}" alt="${h(runner.name)}" style="width:36px;height:36px;object-fit:contain;border-radius:8px;margin-bottom:5px">`:'<div class="pc-crown">2</div>';
+  rc.innerHTML=`${rl}<div class="pc-lbl">Runner Up</div><div class="pc-name">${runner?h(runner.name):'???'}</div>`;canvas.appendChild(rc);
+  const bc=el('div','podium-card bronze-card');bc.style.cssText=`left:${tl3+CARD_W+COL_GAP}px;top:${tp3+CARD_H/2-55}px`;
+  const bl=third&&third.logo?`<img src="${third.logo}" alt="${h(third.name)}" style="width:36px;height:36px;object-fit:contain;border-radius:8px;margin-bottom:5px">`:'<div class="pc-crown">3</div>';
+  bc.innerHTML=`${bl}<div class="pc-lbl">Juara 3</div><div class="pc-name">${third?h(third.name):'???'}</div>`;canvas.appendChild(bc);
 }
 
 // ══════════════════════════════════════════════
@@ -1123,8 +1061,9 @@ function buildCard(m, r, i, isBronze) {
   return card;
 }
 
-function matchNum(r, i) {
-  return [0,16,24,28,30,31][r] + i + 1;
+function matchNum(r,i){
+  const starts={8:[0,4,6],16:[0,8,12,14],32:[0,16,24,28,30]};
+  return (starts[bracketSize]||starts[32])[r]+i+1;
 }
 
 function slotEl(team, score, isW, isL, isBronze, r=0, matchIndex=0, side=1) {
@@ -1171,19 +1110,12 @@ function drawConnector(svg, r, i, _unused) {
   svgPath(svg, `M${x1},${y1} H${mx} V${ny} H${nx}`, '#1e3a5f', 1.5, false);
 }
 
-function drawThirdPlaceConnectors(svg, tp3) {
-  // Loser of SF match 0 (matches[3][0]) → t1 of 3rd place
-  // Loser of SF match 1 (matches[3][1]) → t2 of 3rd place
-  const sf0 = matches[3][0];
-  const sf1 = matches[3][1];
-
-  // Bottom of SF card → down → 3rd place card
-  [0, 1].forEach(i => {
-    const sx  = cardLeft(3) + CARD_W / 2;   // center-bottom of SF card
-    const sy  = cardTop(3, i) + CARD_H;     // bottom edge of SF card
-    const ty  = tp3 + CARD_H / 2;            // center of 3rd place card
-    const tx  = thirdPlaceLeft() + (i === 0 ? CARD_W * 0.25 : CARD_W * 0.75); // entry point
-    svgPath(svg, `M${sx},${sy} V${ty} H${tx}`, '#3d2a0a', 1.5, true);
+function drawThirdPlaceConnectors(svg,tp3){
+  const sfR=semifinalRoundIndex();
+  [0,1].forEach(i=>{
+    const sx=cardLeft(sfR)+CARD_W/2,sy=cardTop(sfR,i)+CARD_H,ty=tp3+CARD_H/2;
+    const tx=thirdPlaceLeft()+(i===0?CARD_W*.25:CARD_W*.75);
+    svgPath(svg,`M${sx},${sy} V${ty} H${tx}`,'#3d2a0a',1.5,true);
   });
 }
 
@@ -1215,8 +1147,8 @@ function openModal(r, i) {
   title.textContent = isBronze ? 'PEREBUTAN JUARA 3' : 'INPUT SKOR';
   title.className   = isBronze ? 'bronze' : '';
 
-  const wn = r <= 4 ? RWIN[r] : WIN_3RD;
-  document.getElementById('msub').textContent  = isBronze ? 'Best of 5 · 3rd Place Match' : `${RNAMES[r]} · ${RFMTS[r]}`;
+  const wn = r === 5 ? WIN_3RD : bracketConfig().wins[r];
+  document.getElementById('msub').textContent  = isBronze ? 'Best of 5 · 3rd Place Match' : `${bracketConfig().names[r]} · ${bracketConfig().formats[r]}`;
   document.getElementById('mn1').textContent   = t1 ? t1.name : 'TBD';
   document.getElementById('mn2').textContent   = t2 ? t2.name : 'TBD';
   document.getElementById('si1').value         = m.s1 !== null ? m.s1 : 0;
@@ -1593,7 +1525,7 @@ async function clearBracketSetup() {
 // STANDINGS
 // ══════════════════════════════════════════════
 function renderStandings() {
-  const finalM = matches[4][0];
+  const finalM = matches[finalRoundIndex()][0];
   const m3     = matches[5][0];
 
   const stats = teams.map((t,i) => {
@@ -1606,8 +1538,8 @@ function renderStandings() {
         if(m.t1!==i && m.t2!==i) return;
         // Total individual games won across completed BO3/BO5 series.
         gw += m.t1 === i ? (Number(m.s1) || 0) : (Number(m.s2) || 0);
-        // For display label: 3rd place match counts as SF level (round 3)
-        const rLabel = (r===5) ? 3 : r;
+        // 3rd place is displayed at semifinal level.
+        const rLabel = (r===5) ? semifinalRoundIndex() : r;
         maxR = Math.max(maxR, rLabel);
         if(m.win===i) {
           w++;
@@ -1642,7 +1574,7 @@ function renderStandings() {
     return a.t.seed-b.t.seed;
   });
 
-  const RSHORT = ['R32','R16','QF','SF','Final'];
+  const RSHORT=bracketConfig().names.map(n=>n==='Round of 32'?'R32':n==='Round of 16'?'R16':n==='Quarterfinal'?'QF':n==='Semifinal'?'SF':'Final');
   const MEDAL  = {champ:'1',runner:'2','3rd':'3'};
   const PCLS   = {champ:'p1',runner:'p2','3rd':'p3'};
   const SCLS   = {champ:'sa',runner:'sa','3rd':'sa',active:'sa',elim:'se',wait:'sw'};
@@ -1715,8 +1647,8 @@ async function exportData() {
       matches[r].forEach((m, i) => {
         if (m.s1 === null && m.s2 === null) return;
         results.push({
-          'Babak': r === 5 ? 'Perebutan Juara 3' : RNAMES[r],
-          'Format': r === 5 ? 'Best of 5' : RFMTS[r],
+          'Babak': r === 5 ? 'Perebutan Juara 3' : bracketConfig().names[r],
+          'Format': r === 5 ? 'Best of 5' : bracketConfig().formats[r],
           'Match': r === 5 ? 'M32' : 'M' + matchNum(r, i),
           'Tim 1': m.t1 !== null ? teams[m.t1].name : 'TBD',
           'Skor 1': m.s1 ?? '',
@@ -1863,7 +1795,7 @@ async function dbLoadMatches() {
 
 function getTournamentSnapshot() {
   propagate();
-  const finalM = matches[4][0];
+  const finalM = matches[finalRoundIndex()][0];
   const m3 = matches[5][0];
   const champion = finalM.win !== null ? teams[finalM.win] : null;
   const runnerUp = finalM.lose !== null
@@ -2336,7 +2268,7 @@ function applyAdminState(active, user = null) {
 
   if (isAdmin) {
     document.body.classList.remove('view-mode');
-    document.getElementById('admin-btn').classList.add('active');
+    document.getElementById('admin-btn').classList.add('active');updateBracketTemplateUI();
     document.getElementById('admin-btn').textContent = '✓';
     document.getElementById('admin-btn').title = 'Logout admin';
   } else {
@@ -2452,7 +2384,7 @@ sb.auth.onAuthStateChange((event, session) => {
 
 async function boot() {
   // Public viewer by default. Admin access comes from Supabase Auth + admin_users.
-  document.body.classList.add('view-mode');
+  document.body.classList.add('view-mode');updateBracketTemplateUI();
 
   try {
     await refreshAdminState();
