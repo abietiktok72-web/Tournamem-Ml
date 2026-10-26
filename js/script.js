@@ -237,7 +237,7 @@ function slotEl(team, score, isW, isL, isBronze, r=0, matchIndex=0, side=1) {
   let logoHTML;
   if (team && team.logo) {
     logoHTML = `<div class="tlogo" style="background:#0004;border:1px solid ${color}40;padding:1px">
-      <img src="${team.logo}" style="width:100%;height:100%;object-fit:contain;border-radius:50%">
+      <img src="${team.logo}" style="width:100%;height:100%;object-fit:contain;border-radius:3px;display:block">
     </div>`;
   } else {
     const init = team ? team.name.split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase() : '?';
