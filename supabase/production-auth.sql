@@ -8,6 +8,9 @@ create table if not exists public.admin_users (
   created_at timestamptz not null default now()
 );
 
+-- Existing projects may already have admin_users without the role column.
+alter table public.admin_users add column if not exists role text not null default 'admin';
+
 alter table public.admin_users enable row level security;
 
 -- The frontend only needs to read the current user's own admin row.
