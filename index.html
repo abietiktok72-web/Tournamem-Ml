@@ -2109,8 +2109,8 @@ async function dbClearMatch(r, i) {
 // ══════════════════════════════════════════════
 async function dbUploadLogo(teamIdx, file) {
   const t    = teams[teamIdx];
-  const ext  = file.name.split('.').pop();
-  const path = `team-${t.id || teamIdx}.${ext}`;
+  // Semua logo sudah dinormalisasi ke PNG persegi oleh normalizeLogoFile().
+  const path = `team-${t.id || teamIdx}.png`;
 
   setSyncState('syncing');
   const { error: upErr } = await sb.storage.from('team-logos').upload(path, file, { upsert: true });
@@ -2139,21 +2139,81 @@ async function dbRemoveLogo(teamIdx) {
 // ══════════════════════════════════════════════
 // OVERRIDE uploadLogo to use Supabase Storage
 // ══════════════════════════════════════════════
+// Normalisasi otomatis: logo ditempatkan di kanvas PNG 512x512,
+// mempertahankan rasio gambar dan memberi ruang transparan agar tidak terpotong.
+async function normalizeLogoFile(file) {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    bitmap.close();
+    throw new Error('Browser tidak mendukung pemrosesan gambar.');
+  }
+
+  const padding = 32;
+  const scale = Math.min((512 - padding * 2) / bitmap.width, (512 - padding * 2) / bitmap.height);
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+  ctx.clearRect(0, 0, 512, 512);
+  ctx.drawImage(bitmap, Math.round((512 - width) / 2), Math.round((512 - height) / 2), width, height);
+  bitmap.close();
+
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(result => result ? resolve(result) : reject(new Error('Gagal memproses gambar logo.')), 'image/png');
+  });
+  const baseName = file.name.replace(/\\.[^.]+$/, '') || 'logo-tim';
+  return new File([blob], baseName + '-fit.png', { type: 'image/png' });
+}
+
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Gagal membaca gambar logo.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 async function uploadLogo(i, input) {
-  const file = input.files[0];
-  if (!file) return;
-  if (file.size > 2 * 1024 * 1024) { toast('Maksimal 2MB','err'); return; }
+  const originalFile = input.files[0];
+  if (!originalFile) return;
+  if (originalFile.size > 2 * 1024 * 1024) {
+    toast('Maksimal ukuran file awal 2MB', 'err');
+    input.value = '';
+    return;
+  }
 
-  // Preview immediately (base64)
-  const reader = new FileReader();
-  reader.onload = e => { teams[i].logo = e.target.result; renderTeamEditor(); renderBracket(); };
-  reader.readAsDataURL(file);
+  try {
+    if (!isAdmin) {
+      toast('Login admin diperlukan untuk mengganti logo', 'err');
+      input.value = '';
+      return;
+    }
 
-  // Upload to Supabase in background
-  const url = await dbUploadLogo(i, file);
-  if (url) {
-    teams[i].logo = url; // replace base64 with permanent URL
-    renderTeamEditor(); renderBracket();
+    setSyncState('syncing');
+    toast('Menyesuaikan logo otomatis…', 'info');
+    const file = await normalizeLogoFile(originalFile);
+    const preview = await fileToDataURL(file);
+    teams[i].logo = preview;
+    renderTeamEditor();
+    renderBracket();
+
+    const url = await dbUploadLogo(i, file);
+    if (url) {
+      teams[i].logo = url;
+      renderTeamEditor();
+      renderBracket();
+      toast('Logo otomatis disesuaikan dan tersimpan ✓', 'ok');
+    }
+  } catch (e) {
+    console.error('Logo normalization/upload error:', e);
+    setSyncState('err');
+    toast('Gagal memproses logo: ' + (e.message || 'kesalahan tidak diketahui'), 'err');
+  } finally {
+    const picker = document.getElementById('lf' + i);
+    if (picker) picker.value = '';
   }
 }
 
