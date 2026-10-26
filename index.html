@@ -2139,26 +2139,74 @@ async function dbRemoveLogo(teamIdx) {
 // ══════════════════════════════════════════════
 // OVERRIDE uploadLogo to use Supabase Storage
 // ══════════════════════════════════════════════
-// Normalisasi otomatis: logo ditempatkan di kanvas PNG 512x512,
-// mempertahankan rasio gambar dan memberi ruang transparan agar tidak terpotong.
+// Auto-crop latar luar: cari area terang/berwarna yang membentuk emblem,
+// lalu masukkan area tersebut ke kanvas persegi tanpa meregangkan gambar.
 async function normalizeLogoFile(file) {
   const bitmap = await createImageBitmap(file);
+  const work = document.createElement('canvas');
+  work.width = bitmap.width;
+  work.height = bitmap.height;
+  const wctx = work.getContext('2d', { willReadFrequently: true });
+  if (!wctx) {
+    bitmap.close();
+    throw new Error('Browser tidak mendukung pemrosesan gambar.');
+  }
+  wctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+
+  const image = wctx.getImageData(0, 0, work.width, work.height);
+  const { data, width, height } = image;
+  const rowHits = new Uint32Array(height);
+  const colHits = new Uint32Array(width);
+
+  // Ambang ini mengabaikan latar gelap dan mencari detail terang pada emblem.
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const p = (y * width + x) * 4;
+      const r = data[p], g = data[p + 1], b = data[p + 2];
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      if (luminance > 112 && (max - min > 22 || luminance > 165)) {
+        rowHits[y]++;
+        colHits[x]++;
+      }
+    }
+  }
+
+  let top = 0, bottom = height - 1, left = 0, right = width - 1;
+  const rowThreshold = Math.max(2, Math.round(width * 0.012));
+  const colThreshold = Math.max(2, Math.round(height * 0.012));
+  while (top < bottom && rowHits[top] < rowThreshold) top++;
+  while (bottom > top && rowHits[bottom] < rowThreshold) bottom--;
+  while (left < right && colHits[left] < colThreshold) left++;
+  while (right > left && colHits[right] < colThreshold) right--;
+
+  // Sisakan sedikit ruang di sekitar logo setelah latar terpangkas.
+  const padX = Math.round((right - left + 1) * 0.045);
+  const padY = Math.round((bottom - top + 1) * 0.045);
+  left = Math.max(0, left - padX);
+  right = Math.min(width - 1, right + padX);
+  top = Math.max(0, top - padY);
+  bottom = Math.min(height - 1, bottom + padY);
+
+  const cropW = right - left + 1;
+  const cropH = bottom - top + 1;
+  const square = Math.max(cropW, cropH);
+  const sx = Math.max(0, Math.floor((left + right + 1 - square) / 2));
+  const sy = Math.max(0, Math.floor((top + bottom + 1 - square) / 2));
+  const safeW = Math.min(square, width - sx);
+  const safeH = Math.min(square, height - sy);
+
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 512;
   const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    bitmap.close();
-    throw new Error('Browser tidak mendukung pemrosesan gambar.');
-  }
-
-  const padding = 32;
-  const scale = Math.min((512 - padding * 2) / bitmap.width, (512 - padding * 2) / bitmap.height);
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
+  if (!ctx) throw new Error('Browser tidak mendukung pemrosesan gambar.');
   ctx.clearRect(0, 0, 512, 512);
-  ctx.drawImage(bitmap, Math.round((512 - width) / 2), Math.round((512 - height) / 2), width, height);
-  bitmap.close();
+  const scale = Math.min(448 / safeW, 448 / safeH);
+  const dw = safeW * scale, dh = safeH * scale;
+  ctx.drawImage(work, sx, sy, safeW, safeH,
+    (512 - dw) / 2, (512 - dh) / 2, dw, dh);
 
   const blob = await new Promise((resolve, reject) => {
     canvas.toBlob(result => result ? resolve(result) : reject(new Error('Gagal memproses gambar logo.')), 'image/png');
