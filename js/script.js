@@ -13,7 +13,7 @@ const BRACKET_TEMPLATES={
   16:{names:['Round of 16','Quarterfinal','Semifinal','Final'],formats:['Best of 3','Best of 3','Best of 5','Best of 5'],wins:[2,2,3,3]},
   32:{names:['Round of 32','Round of 16','Quarterfinal','Semifinal','Final'],formats:['Best of 3','Best of 3','Best of 3','Best of 5','Best of 5'],wins:[2,2,2,3,3]}
 };
-let bracketSize=Number(localStorage.getItem('mlBracketSize'))||32;
+let bracketSize=32; // Nilai resmi dimuat dari Supabase agar semua pengunjung melihat template yang sama.
 function bracketConfig(){return BRACKET_TEMPLATES[bracketSize]||BRACKET_TEMPLATES[32];}
 function finalRoundIndex(){return bracketConfig().names.length-1;}
 function semifinalRoundIndex(){return finalRoundIndex()-1;}
@@ -80,22 +80,41 @@ function initMatches(){
   matches[5]=[{t1:null,t2:null,s1:null,s2:null,win:null,lose:null}];
   updateBracketTemplateUI();
 }
+async function loadBracketTemplate(){
+  try {
+    const {data,error}=await sb.from('bracket_settings').select('template_size').eq('id',1).maybeSingle();
+    if(error) throw error;
+    if(data && BRACKET_TEMPLATES[Number(data.template_size)]) bracketSize=Number(data.template_size);
+    else bracketSize=32;
+  } catch(e) {
+    console.error('Load bracket template error:',e);
+    bracketSize=32;
+    toast('Template bracket gagal dimuat; memakai 32 Besar sementara','err');
+  }
+  updateBracketTemplateUI();
+}
 async function setBracketTemplate(value){
   if(!isAdmin)return;
   const next=Number(value); if(!BRACKET_TEMPLATES[next]||next===bracketSize)return;
   const oldSize=bracketSize;
-  if(!confirm(`Ganti template dari ${oldSize} Besar ke ${next} Besar?\n\nBracket dan hasil pertandingan saat ini akan dikosongkan. Data Team Pool tetap aman.`)){
+  if(!confirm(`Ganti template dari ${oldSize} Besar ke ${next} Besar?\n\nBracket dan hasil pertandingan saat ini akan dikosongkan untuk semua pengunjung. Data Team Pool tetap aman.`)){
     updateBracketTemplateUI();return;
   }
-  bracketSize=next;localStorage.setItem('mlBracketSize',String(next));
-  initMatches();renderBracket();renderStandings();
   try{
     setSyncState('syncing');
-    const {error}=await sb.from('matches').delete().not('id','is',null);
-    if(error)throw error;
-    setSyncState('synced');toast(`Template ${next} Besar diterapkan ✓`,'ok');
+    const {error:settingError}=await sb.from('bracket_settings').upsert({id:1,template_size:next,updated_at:new Date().toISOString()},{onConflict:'id'});
+    if(settingError)throw settingError;
+    const {error:matchesError}=await sb.from('matches').delete().not('id','is',null);
+    if(matchesError) {
+      await sb.from('bracket_settings').update({template_size:oldSize,updated_at:new Date().toISOString()}).eq('id',1);
+      throw matchesError;
+    }
+    bracketSize=next;
+    initMatches();renderBracket();renderStandings();
+    setSyncState('synced');toast(`Template ${next} Besar diterapkan untuk semua pengunjung ✓`,'ok');
   }catch(e){
-    setSyncState('err');toast('Template lokal berubah, tetapi database gagal dibersihkan: '+(e.message||'unknown error'),'err');
+    bracketSize=oldSize;updateBracketTemplateUI();initMatches();renderBracket();renderStandings();
+    setSyncState('err');toast('Template gagal disimpan: '+(e.message||'unknown error'),'err');
   }
 }
 
@@ -1632,6 +1651,9 @@ async function boot() {
 
   try {
     await refreshAdminState();
+
+    // 0. Load the shared bracket template before creating matches.
+    await loadBracketTemplate();
 
     // 1. Load teams
     // Empty Team Pool is valid: admin can start from 0 teams.
