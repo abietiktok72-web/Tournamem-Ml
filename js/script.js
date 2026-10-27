@@ -20,8 +20,9 @@ function semifinalRoundIndex(){return finalRoundIndex()-1;}
 function bracketRoundCount(){return bracketConfig().names.length;}
 function updateBracketTemplateUI(){
   const sel=document.getElementById('bracket-template'); if(sel)sel.value=String(bracketSize);
+  // Sembunyikan keterangan format BO3/BO5 di baris atas bracket.
   const info=document.getElementById('format-info');
-  if(info)info.textContent=bracketConfig().names.slice(0,-1).join(' · ')+' = Best of 3 · Final = Best of 5';
+  if(info)info.closest('.iitem')?.remove();
 }
 const RNAMES=BRACKET_TEMPLATES[32].names;
 const RFMTS=BRACKET_TEMPLATES[32].formats;
