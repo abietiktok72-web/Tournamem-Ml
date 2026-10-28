@@ -342,7 +342,7 @@ function submitScore() {
   const m  = matches[activeR][activeI];
   const s1 = Math.max(0, parseInt(document.getElementById('si1').value)||0);
   const s2 = Math.max(0, parseInt(document.getElementById('si2').value)||0);
-  const wn = activeR === 5 ? WIN_3RD : bracketConfig().wins[activeR];
+  const wn = activeR === 5 ? WIN_3RD : (String(bracketConfig().formats[activeR] || '').includes('5') ? 3 : 2);
   const err = document.getElementById('merr');
 
   if (s1 > wn || s2 > wn)     { err.textContent='Skor melebihi batas seri'; return; }
@@ -1425,7 +1425,7 @@ async function submitScore() {
   const m  = matches[activeR][activeI];
   const s1 = Math.max(0, parseInt(document.getElementById('si1').value)||0);
   const s2 = Math.max(0, parseInt(document.getElementById('si2').value)||0);
-  const wn = activeR === 5 ? WIN_3RD : bracketConfig().wins[activeR];
+  const wn = activeR === 5 ? WIN_3RD : (String(bracketConfig().formats[activeR] || '').includes('5') ? 3 : 2);
   const err = document.getElementById('merr');
 
   if (s1 > wn || s2 > wn)   { err.textContent='Skor melebihi batas seri'; return; }
